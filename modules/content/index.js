@@ -427,6 +427,12 @@ export default {
         actions.push(
           button('Manage Tags', 'secondary', showTags)
         );
+
+        if (config.seedImportEnabled) {
+          actions.push(
+            button('Import Test Data', 'secondary', showImport)
+          );
+        }
       }
 
       actions.push(
@@ -1453,6 +1459,210 @@ export default {
       });
 
       container.append(host);
+    }
+
+    function importChunks(kind, values, format) {
+      const chunks = [];
+      let current = [];
+
+      const bytes = items =>
+        new TextEncoder().encode(
+          JSON.stringify({
+            format,
+            kind,
+            items
+          })
+        ).length;
+
+      for (const value of values) {
+        const candidate = current.concat([value]);
+
+        if (
+          current.length &&
+          (candidate.length > 10 || bytes(candidate) > 150000)
+        ) {
+          chunks.push(current);
+          current = [value];
+        } else {
+          current = candidate;
+        }
+
+        if (bytes(current) > 150000) {
+          throw new Error(
+            'One imported item is too large for the Content Handler.'
+          );
+        }
+      }
+
+      if (current.length) chunks.push(current);
+      return chunks;
+    }
+
+    async function showImport() {
+      clear();
+
+      header(
+        'Import Test Data',
+        'Import KCW seed authors, tags, drafts, and published content.',
+        [button('Back', 'secondary', showList)]
+      );
+
+      const file = input('file');
+      file.accept = 'application/json,.json';
+
+      const summary = el(
+        'div',
+        'Choose a kcw-content-seed-v2 JSON file.',
+        'cms-side-panel'
+      );
+
+      const progress = el(
+        'div',
+        '',
+        'cms-validation-summary notice'
+      );
+      progress.hidden = true;
+
+      let parsed = null;
+
+      const validateFile = value => {
+        if (
+          !value ||
+          value.format !== 'kcw-content-seed-v2' ||
+          !Array.isArray(value.authors) ||
+          !Array.isArray(value.tags) ||
+          !Array.isArray(value.content)
+        ) {
+          throw new Error(
+            'This is not a supported KCW content seed file.'
+          );
+        }
+
+        return value;
+      };
+
+      const describe = value => {
+        const published = value.content.filter(
+          item =>
+            String(item.status || '').toUpperCase() === 'PUBLISHED'
+        ).length;
+
+        const publicPublished = value.content.filter(
+          item =>
+            String(item.status || '').toUpperCase() === 'PUBLISHED' &&
+            String(item.visibility || '').toUpperCase() === 'PUBLIC'
+        ).length;
+
+        summary.replaceChildren(
+          el('h2', 'Import Preview'),
+          detailRow('Authors', String(value.authors.length)),
+          detailRow('Tags', String(value.tags.length)),
+          detailRow('Content', String(value.content.length)),
+          detailRow('Published', String(published)),
+          detailRow('Public projections', String(publicPublished)),
+          detailRow(
+            'Drafts',
+            String(value.content.length - published)
+          )
+        );
+      };
+
+      file.addEventListener('change', async () => {
+        parsed = null;
+        progress.hidden = true;
+
+        const selected = file.files && file.files[0];
+
+        if (!selected) {
+          summary.textContent =
+            'Choose a kcw-content-seed-v2 JSON file.';
+          return;
+        }
+
+        try {
+          const raw = await selected.text();
+          parsed = validateFile(JSON.parse(raw));
+          describe(parsed);
+        } catch (error) {
+          summary.textContent =
+            error?.message || 'The import file could not be read.';
+        }
+      });
+
+      const runImport = button(
+        'Import',
+        'primary',
+        async () => {
+          if (!parsed) {
+            throw new Error(
+              'Choose and validate an import file first.'
+            );
+          }
+
+          if (
+            !(await ui.confirm(
+              'Import this seed data? Existing seed IDs will be overwritten.'
+            ))
+          ) {
+            return;
+          }
+
+          const work = [
+            ['authors', parsed.authors],
+            ['tags', parsed.tags],
+            ['content', parsed.content]
+          ];
+
+          const batches = work.flatMap(([kind, values]) =>
+            importChunks(kind, values, parsed.format)
+              .map(items => ({ kind, items }))
+          );
+
+          let completed = 0;
+          let imported = 0;
+          let projected = 0;
+
+          progress.hidden = false;
+
+          for (const batch of batches) {
+            progress.textContent =
+              `Importing batch ${completed + 1} of ${batches.length}…`;
+
+            const result = await call(
+              'importBatch',
+              {
+                format: parsed.format,
+                kind: batch.kind,
+                items: batch.items
+              }
+            );
+
+            completed += 1;
+            imported += Number(result.imported || 0);
+            projected += Number(result.publishedPublic || 0);
+          }
+
+          progress.textContent =
+            `Import complete: ${imported} records processed; ${projected} public content projections created.`;
+
+          await loadData();
+        }
+      );
+
+      const panel = el(
+        'section',
+        undefined,
+        'cms-editor-form'
+      );
+
+      panel.append(
+        field('KCW seed JSON', file, 'importFile'),
+        summary,
+        progress,
+        runImport
+      );
+
+      container.append(panel);
     }
 
     async function refreshAndList(

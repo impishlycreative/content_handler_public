@@ -1,0 +1,127 @@
+.account-avatar {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--green-900);
+  font-size: .78rem;
+  font-weight: 850;
+  line-height: 1;
+  text-decoration: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.account-avatar:hover {
+  color: var(--green-900);
+  background: white;
+  transform: none;
+}
+
+.account-profile {
+  max-width: 260px;
+  overflow: hidden;
+  padding: 5px 3px;
+  color: rgba(255, 255, 255, .94);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: none;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 680;
+  cursor: pointer;
+}
+
+.account-profile:hover {
+  color: white;
+  background: rgba(255, 255, 255, .08);
+  transform: none;
+}
+
+.profile-page {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.profile-heading {
+  margin-bottom: 22px;
+}
+
+.profile-heading .help {
+  max-width: 650px;
+  margin: 10px 0 0;
+}
+
+.profile-card {
+  padding: clamp(22px, 4vw, 36px);
+  background: rgba(255, 255, 255, .92);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.profile-form {
+  display: grid;
+  gap: 22px;
+}
+
+.profile-field {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.profile-label {
+  color: var(--ink-strong);
+  font-size: .84rem;
+  font-weight: 760;
+}
+
+.profile-field input {
+  width: 100%;
+  max-width: 520px;
+}
+
+.profile-readonly {
+  width: 100%;
+  max-width: 520px;
+  padding: 11px 12px;
+  color: var(--muted);
+  background: #f4f6f4;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  overflow-wrap: anywhere;
+}
+
+.profile-note {
+  max-width: 620px;
+  margin: 0;
+  color: var(--muted);
+  font-size: .84rem;
+  line-height: 1.55;
+}
+
+.profile-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+@media (max-width: 650px) {
+  .account .account-avatar {
+    display: grid;
+  }
+
+  #account {
+    display: none;
+  }
+
+  .profile-actions {
+    justify-content: stretch;
+  }
+
+  .profile-actions button {
+    width: 100%;
+  }
+}

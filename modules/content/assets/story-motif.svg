@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 160" role="img" aria-labelledby="title desc">
+  <title id="title">Story motif</title>
+  <desc id="desc">Abstract literary night motif with moon and book-like hills.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2f3155"/>
+      <stop offset="1" stop-color="#746b92"/>
+    </linearGradient>
+    <linearGradient id="hill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b8a9cb" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#675c86" stop-opacity=".86"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="160" rx="18" fill="url(#bg)"/>
+  <circle cx="73" cy="50" r="23" fill="#f4e7c6"/>
+  <circle cx="83" cy="41" r="23" fill="#3b3a62"/>
+  <g fill="#f6f0ff">
+    <circle cx="147" cy="31" r="2.2"/>
+    <circle cx="187" cy="49" r="1.7"/>
+    <circle cx="235" cy="29" r="2"/>
+    <circle cx="277" cy="59" r="1.6"/>
+    <circle cx="120" cy="69" r="1.5"/>
+  </g>
+  <path d="M0 128C51 91 93 88 139 116C181 87 225 82 320 128V160H0Z" fill="url(#hill)"/>
+  <path d="M0 143C58 118 107 123 158 147C210 119 266 117 320 142V160H0Z" fill="#4f486f" fill-opacity=".9"/>
+  <path d="M138 116C147 111 154 108 160 107C166 108 173 111 182 116" fill="none" stroke="#eee7f8" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/>
+</svg>

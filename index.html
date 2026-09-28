@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self'; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://script.google.com https://script.googleusercontent.com; frame-src https://*.firebaseapp.com; object-src 'none'; base-uri 'none'; form-action 'self'">
+  <title>Content Handler</title>
+  <link rel="stylesheet" href="core/styles.css">
+  <link rel="stylesheet" href="core/profile.css">
+</head>
+<body>
+  <p id="boot" class="notice boot-notice" role="status">Loading workspace…</p>
+  <div id="startupError" class="notice" role="alert" hidden></div>
+
+  <main id="login" class="login-page" hidden>
+    <section class="login-card login-shell" aria-labelledby="loginTitle">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" focusable="false" aria-hidden="true">
+            <path d="M26.7 4.6C17.2 5.1 10.8 8.3 7.6 14.1c-2.6 4.7-1.5 9.6-1.5 9.6s4.8 1.3 9.6-1.2c5.9-3.1 9.3-9.3 11-17.9ZM8.1 23.4c3.3-5.6 7.8-9.9 13.5-13"/>
+          </svg>
+        </div>
+        <div>
+          <h1 id="loginTitle">Content Handler</h1>
+          <p id="subtitle">Content Management Platform</p>
+        </div>
+      </div>
+
+      <form id="loginForm">
+        <label>
+          Email
+          <input id="email" type="email" autocomplete="username" required>
+        </label>
+        <label>
+          Password
+          <input id="password" type="password" autocomplete="current-password" required>
+        </label>
+        <button id="loginButton" class="primary" type="submit">Sign in</button>
+        <p id="loginError" class="error" role="alert"></p>
+      </form>
+
+      <p class="help">Use the account provided by your administrator.</p>
+    </section>
+  </main>
+
+  <div id="workspace" hidden>
+    <header class="topbar">
+      <div class="topbar-brand">
+        <div class="topbar-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" focusable="false" aria-hidden="true">
+            <path d="M26.7 4.6C17.2 5.1 10.8 8.3 7.6 14.1c-2.6 4.7-1.5 9.6-1.5 9.6s4.8 1.3 9.6-1.2c5.9-3.1 9.3-9.3 11-17.9ZM8.1 23.4c3.3-5.6 7.8-9.9 13.5-13"/>
+          </svg>
+        </div>
+        <div class="topbar-title-wrap">
+          <strong id="appTitle"></strong>
+          <span>Content Management Platform</span>
+        </div>
+      </div>
+
+      <div class="account">
+        <a id="profileAvatar" class="account-avatar" href="#profile" aria-label="Open profile">?</a>
+        <a id="account" class="account-profile" href="#profile"></a>
+        <button id="logout" class="topbar-signout" type="button">Sign out</button>
+      </div>
+    </header>
+
+    <div class="workspace-layout">
+      <aside class="sidebar" aria-label="Application navigation">
+        <nav id="navigation" aria-label="Modules"></nav>
+      </aside>
+
+      <div class="workspace-main">
+        <div id="status" hidden></div>
+        <main id="content" tabindex="-1"></main>
+      </div>
+    </div>
+  </div>
+
+  <noscript><p class="notice">JavaScript is required to sign in.</p></noscript>
+  <script type="module" src="app/main.js"></script>
+</body>
+</html>

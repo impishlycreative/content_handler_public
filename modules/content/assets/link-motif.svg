@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 160" role="img" aria-labelledby="title desc">
+  <title id="title">Link motif</title>
+  <desc id="desc">Abstract connected-resource motif with network nodes and chain links.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#dcebe7"/>
+      <stop offset="1" stop-color="#8cb6ad"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="160" rx="18" fill="url(#bg)"/>
+  <path d="M36 126C88 89 123 116 165 81C206 47 244 63 289 31" fill="none" stroke="#245b54" stroke-opacity=".20" stroke-width="2"/>
+  <path d="M47 42L96 70L143 42L194 74L247 47L286 80" fill="none" stroke="#245b54" stroke-opacity=".28" stroke-width="2"/>
+  <g fill="#f7fbf9" stroke="#245b54" stroke-width="3">
+    <circle cx="47" cy="42" r="7"/>
+    <circle cx="96" cy="70" r="7"/>
+    <circle cx="143" cy="42" r="7"/>
+    <circle cx="194" cy="74" r="7"/>
+    <circle cx="247" cy="47" r="7"/>
+    <circle cx="286" cy="80" r="7"/>
+  </g>
+  <g transform="translate(112 92)" fill="none" stroke="#245b54" stroke-width="5" stroke-linecap="round">
+    <rect x="0" y="0" width="44" height="24" rx="12" transform="rotate(-16 22 12)"/>
+    <rect x="33" y="0" width="44" height="24" rx="12" transform="rotate(16 55 12)"/>
+    <path d="M28 13h21"/>
+  </g>
+  <circle cx="267" cy="123" r="27" fill="#ffffff" fill-opacity=".18"/>
+  <circle cx="267" cy="123" r="14" fill="none" stroke="#245b54" stroke-opacity=".26" stroke-width="2"/>
+</svg>

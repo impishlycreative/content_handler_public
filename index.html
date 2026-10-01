@@ -4,10 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self'; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://script.google.com https://script.googleusercontent.com; frame-src https://*.firebaseapp.com; object-src 'none'; base-uri 'none'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self'; img-src 'self' data: https://impishlycreative.github.io; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://script.google.com https://script.googleusercontent.com; frame-src https://*.firebaseapp.com; object-src 'none'; base-uri 'none'; form-action 'self'">
   <title>Content Handler</title>
   <link rel="stylesheet" href="core/styles.css">
   <link rel="stylesheet" href="core/profile.css">
+  <link rel="stylesheet" href="modules/calendar/styles.css?v=20261001-2">
 </head>
 <body>
   <p id="boot" class="notice boot-notice" role="status">Loading workspace…</p>
@@ -78,6 +79,6 @@
   </div>
 
   <noscript><p class="notice">JavaScript is required to sign in.</p></noscript>
-  <script type="module" src="app/main.js"></script>
+  <script type="module" src="app/main.js?v=20261001-2"></script>
 </body>
 </html>

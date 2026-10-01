@@ -1,6 +1,15 @@
 import { renderMarkdown } from './markdown.js';
 
 const TYPES = Object.freeze(['ARTICLE', 'STORY', 'LINK']);
+const TYPE_PERMISSIONS = Object.freeze({
+  ARTICLE: Object.freeze({ read: 'content.article.read', write: 'content.article.write' }),
+  STORY: Object.freeze({ read: 'content.story.read', write: 'content.story.write' }),
+  LINK: Object.freeze({ read: 'content.link.read', write: 'content.link.write' })
+});
+const CONTENT_READ_PERMISSIONS = Object.freeze([
+  'content.read',
+  ...TYPES.map(type => TYPE_PERMISSIONS[type].read)
+]);
 
 const CARD_MOTIFS = Object.freeze({
   ARTICLE: new URL('./assets/article-motif.svg', import.meta.url).href,
@@ -101,7 +110,8 @@ function contentVisual(record, className) {
 export default {
   id: 'content',
   title: 'Content',
-  permissions: ['content.read'],
+  permissions: [],
+  anyPermissions: CONTENT_READ_PERMISSIONS,
 
   async mount({ container, api, ui, signal, identity }) {
     container.classList.add('cms');
@@ -118,7 +128,20 @@ export default {
     let dismissMenu = null;
     const filters = { mine: {}, all: {}, trash: {} };
 
-    const canWrite = identity.permissions.includes('content.write');
+    const hasPermission = permission =>
+      identity.permissions.includes(permission);
+    const canReadType = type =>
+      hasPermission('content.read') ||
+      hasPermission(TYPE_PERMISSIONS[type]?.read);
+    const canWriteType = type =>
+      canReadType(type) &&
+      (
+        hasPermission('content.write') ||
+        hasPermission(TYPE_PERMISSIONS[type]?.write)
+      );
+    const readableTypes = TYPES.filter(canReadType);
+    const writableTypes = TYPES.filter(canWriteType);
+    const canWriteAny = writableTypes.length > 0;
 
     async function call(action, data = {}) {
       const response = await api(`content.${action}`, data);
@@ -171,7 +194,11 @@ export default {
 
       items = items.filter(item => item.id !== summary.id);
 
-      if (!summary.deleted && (scope === 'all' || summary.ownerUserId === identity.uid)) {
+      if (
+        canReadType(summary.type) &&
+        !summary.deleted &&
+        (scope === 'all' || summary.ownerUserId === identity.uid)
+      ) {
         items.push(summary);
         items.sort((a, b) =>
           String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''))
@@ -405,7 +432,7 @@ export default {
 
       const actions = [];
 
-      if (canWrite) {
+      if (canWriteAny) {
         actions.push(
           newContentMenu()
         );
@@ -487,7 +514,11 @@ export default {
         container.append(
           el(
             'div',
-            items.length ? 'No items match your filters. Clear filters to show all items in this view.' : 'No content yet. Create your first item.',
+            items.length
+              ? 'No items match your filters. Clear filters to show all items in this view.'
+              : canWriteAny
+                ? 'No content yet. Create your first item.'
+                : 'No content is available for your permissions.',
             'empty'
           )
         );
@@ -513,7 +544,7 @@ export default {
       const host = el('details', undefined, 'cms-new-menu');
       host.append(el('summary', 'New content', 'primary'));
       const choices = el('div', undefined, 'cms-new-choices');
-      for (const type of TYPES) {
+      for (const type of writableTypes) {
         choices.append(button(type[0] + type.slice(1).toLowerCase(), 'secondary', () =>
           showEditor({ type, visibility: config.defaults.visibility, tags: [], sensitive: false })));
       }
@@ -531,7 +562,7 @@ export default {
       const active = filters[key];
       const controls = el('div', undefined, 'cms-filters');
       const options = [
-        ['type', 'Content type', TYPES],
+        ['type', 'Content type', readableTypes],
         ['status', 'Publication status', ['DRAFT', 'PUBLISHED']],
         ['tag', 'Tag', [...new Set(source.flatMap(item => item.tags || []))]]
       ];
@@ -583,8 +614,9 @@ export default {
       clear();
 
       const actions = [];
+      const canWriteRecord = canWriteType(record.type);
 
-      if (canWrite) {
+      if (canWriteRecord) {
         actions.push(
           button('Edit', 'secondary', () => showEditor(record))
         );
@@ -595,7 +627,7 @@ export default {
       );
 
       if (
-        canWrite &&
+        canWriteRecord &&
         (record.status === 'PUBLISHED' ||
           record.hasPublishedVersion)
       ) {
@@ -610,7 +642,7 @@ export default {
 
       if (
         record.status !== 'PUBLISHED' &&
-        canWrite &&
+        canWriteRecord &&
         config.canPublish
       ) {
         actions.push(
@@ -622,7 +654,7 @@ export default {
         );
       }
 
-      if (canWrite) {
+      if (canWriteRecord) {
         actions.push(
           button(
             'Delete',
@@ -901,6 +933,12 @@ export default {
     }
 
     function showEditor(record) {
+      if (!canWriteType(record.type)) {
+        ui.status('You do not have permission to edit this content type.', 'error');
+        showList();
+        return;
+      }
+
       current = record;
       mode = 'edit';
       clear();
@@ -1337,21 +1375,26 @@ export default {
           el(
             'span',
             `Deleted ${fmtDate(item.deletedAt)}`
-          ),
-          button(
-            'Restore',
-            'secondary',
-            async () => {
-              acceptResult(
-                await call(
-                  'restore',
-                  { id: item.id }
-                )
-              );
-              showList();
-            }
           )
         );
+
+        if (canWriteType(item.type)) {
+          row.append(
+            button(
+              'Restore',
+              'secondary',
+              async () => {
+                acceptResult(
+                  await call(
+                    'restore',
+                    { id: item.id }
+                  )
+                );
+                showList();
+              }
+            )
+          );
+        }
 
         host.append(row);
       });

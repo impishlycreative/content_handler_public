@@ -1,5 +1,6 @@
 import { ApiError } from './api.js';
 const revoked = new Set(['INVALID_TOKEN', 'NOT_AUTHORIZED', 'SESSION_EXPIRED']);
+const externalRevoked = new Set(['INVALID_TOKEN', 'SESSION_EXPIRED']);
 export function createSession({ auth, transport, config, storage = sessionStorage, now = Date.now }) {
   const key = `${config.appId}:loginAt`;
   let identity = null;
@@ -15,6 +16,11 @@ export function createSession({ auth, transport, config, storage = sessionStorag
       throw new ApiError('SESSION_EXPIRED', 'Your session has ended. Please sign in again.');
     }
     return auth.currentUser;
+  }
+  function serviceEndpoint(serviceId) {
+    const endpoint = config.serviceApiUrls?.[serviceId];
+    if (!endpoint) throw new ApiError('INVALID_SERVICE', 'This service is not configured.');
+    return endpoint;
   }
   async function authorize(user, attempt) {
     const response = await transport(user, 'authorize');
@@ -60,6 +66,15 @@ export function createSession({ auth, transport, config, storage = sessionStorag
         return response;
       }
       catch (error) { if (revoked.has(error.code)) await logout().catch(() => {}); throw error; }
+    },
+    async serviceApi(serviceId, action, data, signal) {
+      try {
+        const user = requireUser();
+        return await transport(user, action, data, signal, serviceEndpoint(serviceId));
+      } catch (error) {
+        if (externalRevoked.has(error.code)) await logout().catch(() => {});
+        throw error;
+      }
     },
     check() { try { requireUser(); return true; } catch { void logout().catch(() => {}); return false; } },
     logout,

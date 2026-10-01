@@ -11,7 +11,10 @@ export default {
     messagingSenderId: '892988687204',
     appId: '1:892988687204:web:d2524166fbb5d4d22bf071'
   },
-  apiUrl: 'https://script.google.com/macros/s/AKfycbxDrDo2mhMCy6_uNx1ri90s-e1-NMm8XLCjQiIbyoAhcDg9O7HXKnRNmhVhJ3Le76j8/exec', 
+  apiUrl: 'https://script.google.com/macros/s/AKfycbxDrDo2mhMCy6_uNx1ri90s-e1-NMm8XLCjQiIbyoAhcDg9O7HXKnRNmhVhJ3Le76j8/exec',
+  serviceApiUrls: {
+    calendar: 'https://script.google.com/macros/s/AKfycbyvxfJniOdH81RLvZT2_0_yicxGIcrlTUuTvzXw96u0qnVUQ5ZllW84JvsnsY4DD0jh/exec'
+  },
   sessionMs: 60 * 60 * 1000,
   requestTimeoutMs: 20000
 };

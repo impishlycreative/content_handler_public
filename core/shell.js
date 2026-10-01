@@ -100,6 +100,11 @@ export async function startShell({ config, registry, session }) {
           if (!action.startsWith(`${module.id}.`)) throw new Error('Module actions must use their own namespace.');
           return session.api(action, data, controller.signal);
         },
+        serviceApi: (serviceId, action, data) => {
+          if (controller.signal.aborted) throw new Error('This module is no longer active.');
+          if (serviceId !== module.id) throw new Error('Modules may only call their matching external service.');
+          return session.serviceApi(serviceId, action, data, controller.signal);
+        },
         ui: Object.freeze({ element: ui.element, confirm: ui.confirmAction, status: (message, kind) => { if (version === routeVersion) ui.notice($('#status'), message, kind); } })
       }));
       if (cleanup !== undefined && typeof cleanup !== 'function') throw new Error('Invalid module cleanup.');

@@ -1409,7 +1409,7 @@ dialog::backdrop {
 
   .sidebar {
     padding: 10px 16px;
-    overflow-x: auto;
+    overflow-x: visible;
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }
@@ -1417,7 +1417,8 @@ dialog::backdrop {
   .sidebar nav {
     position: static;
     display: flex;
-    min-width: max-content;
+    flex-wrap: wrap;
+    min-width: 0;
     gap: 5px;
   }
 

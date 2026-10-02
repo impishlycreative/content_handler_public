@@ -292,9 +292,14 @@ export default {
           const message =
             result?.firebaseAdminError?.message ||
             'Firebase account status is unavailable.';
+          const providerMessage =
+            result?.firebaseAdminError?.providerMessage || '';
 
           showNotice(
-            `Users loaded from Content Handler authorization, but Firebase administration is unavailable: ${message} (${code})`,
+            `Users loaded from Content Handler authorization, but Firebase administration is unavailable: ${message} (${code})` +
+              (providerMessage
+                ? ` Firebase says: ${providerMessage}`
+                : ''),
             'users-warning'
           );
         }

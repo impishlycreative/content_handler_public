@@ -1851,3 +1851,8 @@ dialog::backdrop {
     width: 100%;
   }
 }
+
+.users-status-firebase_status_unavailable {
+  color: var(--amber-ink);
+  background: var(--amber-soft);
+}

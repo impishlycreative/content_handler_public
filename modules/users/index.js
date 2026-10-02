@@ -238,7 +238,9 @@ export default {
             ? 'Disabled'
             : user.accountStatus === 'FIREBASE_ACCOUNT_MISSING'
               ? 'Firebase account missing'
-              : 'Active',
+              : user.accountStatus === 'FIREBASE_STATUS_UNAVAILABLE'
+                ? 'Firebase status unavailable'
+                : 'Active',
           `users-status users-status-${String(user.accountStatus || '').toLowerCase()}`
         );
 
@@ -265,7 +267,8 @@ export default {
 
         resend.disabled =
           !user.email ||
-          user.accountStatus === 'FIREBASE_ACCOUNT_MISSING';
+          user.accountStatus === 'FIREBASE_ACCOUNT_MISSING' ||
+          user.accountStatus === 'FIREBASE_STATUS_UNAVAILABLE';
 
         actions.append(resend);
         row.append(identity, role, access, status, actions);
@@ -278,9 +281,31 @@ export default {
         el('div', 'Loading users…', 'empty')
       );
 
-      const result = await call('list');
-      users = Array.isArray(result?.users) ? result.users : [];
-      renderUsers();
+      try {
+        const result = await call('list');
+        users = Array.isArray(result?.users) ? result.users : [];
+        renderUsers();
+
+        if (result?.firebaseStatusAvailable === false) {
+          const code =
+            result?.firebaseAdminError?.code || 'FIREBASE_ERROR';
+          const message =
+            result?.firebaseAdminError?.message ||
+            'Firebase account status is unavailable.';
+
+          showNotice(
+            `Users loaded from Content Handler authorization, but Firebase administration is unavailable: ${message} (${code})`,
+            'users-warning'
+          );
+        }
+      } catch (error) {
+        users = [];
+        renderUsers();
+        showNotice(
+          `Users could not be loaded: ${error?.message || 'Unknown error'}${error?.code ? ` (${error.code})` : ''}`,
+          'users-error'
+        );
+      }
     }
 
     q('#usersAddButton').addEventListener('click', openDialog);

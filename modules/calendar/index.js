@@ -164,6 +164,7 @@ export default {
   id: 'calendar',
   title: 'Calendar Manager',
   permissions: [],
+  anyPermissions: ['calendar.read', 'content.admin'],
 
   async mount({ container, identity, serviceApi, ui, signal }) {
     container.classList.add('calendar-module');

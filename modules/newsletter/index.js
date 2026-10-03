@@ -208,8 +208,6 @@ function templateMarkup(layout = 'single') {
   return `
     <mjml>
       <mj-head>
-        <mj-title>KCW Newsletter</mj-title>
-        <mj-preview>Weekly news from Kemptville Creative Writers</mj-preview>
         <mj-attributes>
           <mj-all font-family="Arial, Helvetica, sans-serif" />
           <mj-body background-color="${THEME.cream}" />
@@ -226,6 +224,55 @@ function templateMarkup(layout = 'single') {
 
 function validateRequiredLinks(mjml) {
   return REQUIRED_TOKENS.filter(token => !mjml.includes(token));
+}
+
+function escapeXml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, character => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&apos;'
+  }[character]));
+}
+
+// mj-title and mj-preview belong to message metadata. Keep them out of the
+// GrapesJS canvas because grapesjs-mjml 1.0.8 renders those unsupported head
+// children as visible text. They are injected only when compiling a preview/send.
+function stripEditorMetadata(mjml) {
+  return String(mjml || '')
+    .replace(/<mj-title\b[^>]*>[\s\S]*?<\/mj-title>/gi, '')
+    .replace(/<mj-preview\b[^>]*>[\s\S]*?<\/mj-preview>/gi, '');
+}
+
+function withMessageMetadata(mjml, subject, previewText) {
+  const parts = [];
+  const cleanSubject = String(subject || '').trim();
+  const cleanPreview = String(previewText || '').trim();
+
+  if (cleanSubject) {
+    parts.push(`<mj-title>${escapeXml(cleanSubject)}</mj-title>`);
+  }
+
+  if (cleanPreview) {
+    parts.push(`<mj-preview>${escapeXml(cleanPreview)}</mj-preview>`);
+  }
+
+  if (!parts.length) return mjml;
+
+  const metadata = parts.join('');
+
+  if (/<mj-head\b[^>]*>/i.test(mjml)) {
+    return mjml.replace(
+      /<mj-head\b[^>]*>/i,
+      match => `${match}${metadata}`
+    );
+  }
+
+  return mjml.replace(
+    /<mjml\b[^>]*>/i,
+    match => `${match}<mj-head>${metadata}</mj-head>`
+  );
 }
 
 // grapesjs-mjml 1.0.8 renders mj-body with an editor-only
@@ -496,15 +543,31 @@ export default {
       }
 
       for (const draft of drafts) {
-        const row = button('', 'newsletter-draft-row', () => openDraft(draft.id));
+        const row = el('div', undefined, 'newsletter-draft-row');
+        const openButton = button('', 'newsletter-draft-open', () => openDraft(draft.id));
+        openButton.setAttribute('aria-label', `Open ${draft.title || 'newsletter draft'}`);
+
         const copy = el('span', undefined, 'newsletter-draft-copy');
         copy.append(
           el('strong', draft.title || 'Untitled newsletter'),
           el('small', draft.subject || 'No email subject yet'),
           el('small', `Updated ${formatDate(draft.updatedAt)}`)
         );
+
         const status = el('span', draft.status || 'DRAFT', 'newsletter-draft-status');
-        row.append(copy, status);
+        openButton.append(copy, status);
+
+        const deleteButton = button(
+          'Delete',
+          'newsletter-draft-delete',
+          () => deleteDraft(draft)
+        );
+        deleteButton.setAttribute(
+          'aria-label',
+          `Delete ${draft.title || 'newsletter draft'}`
+        );
+
+        row.append(openButton, deleteButton);
         if (draft.id === currentId) row.classList.add('is-current');
         draftsList.append(row);
       }
@@ -536,7 +599,9 @@ export default {
         subjectField.input.value = record.subject || '';
         previewField.input.value = record.previewText || '';
 
-        editor.setComponents(record.mjml || templateMarkup('single'));
+        editor.setComponents(
+          stripEditorMetadata(record.mjml || templateMarkup('single'))
+        );
 
         markSaved(record.updatedAt);
         renderDrafts();
@@ -544,6 +609,39 @@ export default {
       } catch (error) {
         ui.status(
           error?.message || 'The newsletter draft could not be opened.',
+          'error'
+        );
+      }
+    }
+
+    async function deleteDraft(draft) {
+      if (!draft?.id) return;
+
+      const label = draft.title || 'this newsletter draft';
+      const confirmed = window.confirm(
+        `Delete "${label}"? This draft will be permanently removed.`
+      );
+
+      if (!confirmed) return;
+
+      try {
+        await call('delete', { id: draft.id });
+
+        if (currentId === draft.id) {
+          currentId = '';
+          currentLayout = 'single';
+          clearFields();
+          editor.setComponents(templateMarkup('single'));
+          dirty = false;
+          saveState.textContent = 'Not saved yet';
+          saveState.classList.remove('is-dirty');
+        }
+
+        await loadDrafts();
+        ui.status(`Deleted ${label}.`);
+      } catch (error) {
+        ui.status(
+          error?.message || 'The newsletter draft could not be deleted.',
           'error'
         );
       }
@@ -562,7 +660,7 @@ export default {
       saveButton.disabled = true;
 
       try {
-        const mjml = editor.getHtml();
+        const mjml = stripEditorMetadata(editor.getHtml());
         const result = await call('save', {
           id: currentId || undefined,
           title,
@@ -609,7 +707,15 @@ export default {
           return;
         }
 
-        const result = editor.runCommand('mjml-code-to-html', { mjml });
+        const messageMjml = withMessageMetadata(
+          mjml,
+          subjectField.input.value,
+          previewField.input.value
+        );
+        const result = editor.runCommand(
+          'mjml-code-to-html',
+          { mjml: messageMjml }
+        );
 
         if (!result?.html) {
           throw new Error('MJML did not return rendered HTML.');

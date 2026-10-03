@@ -202,13 +202,11 @@
 
 .newsletter-draft-row {
   width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 11px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  overflow: hidden;
   color: var(--ink);
-  text-align: left;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 9px;
@@ -217,6 +215,42 @@
 .newsletter-draft-row.is-current {
   border-color: #9ab9a8;
   box-shadow: inset 3px 0 0 var(--green-600);
+}
+
+.newsletter-draft-open {
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 11px;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.newsletter-draft-open:hover,
+.newsletter-draft-open:focus-visible {
+  background: #f5faf7;
+}
+
+.newsletter-draft-delete {
+  align-self: stretch;
+  padding: 8px 10px;
+  color: #9b2c2c;
+  background: #fff8f7;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  font-size: .72rem;
+  font-weight: 800;
+}
+
+.newsletter-draft-delete:hover,
+.newsletter-draft-delete:focus-visible {
+  background: #fff0ed;
 }
 
 .newsletter-draft-copy {
@@ -264,5 +298,39 @@
 @media (max-width: 760px) {
   .newsletter-persistence-side {
     grid-template-columns: 1fr;
+  }
+
+  /*
+   * GrapesJS docks the Style/Block Manager in a wide right-hand panel.
+   * On a phone that panel crushes the 600px email canvas. Mobile editing
+   * prioritizes the canvas and inline component editing; the desktop/tablet
+   * editor retains the full manager.
+   */
+  .newsletter-editor-host .gjs-pn-views,
+  .newsletter-editor-host .gjs-pn-views-container {
+    display: none !important;
+  }
+
+  .newsletter-editor-host .gjs-cv-canvas {
+    width: 100% !important;
+    right: 0 !important;
+  }
+
+  .newsletter-editor-host .gjs-pn-options {
+    right: 0 !important;
+  }
+
+  .newsletter-editor-host .gjs-editor-cont,
+  .newsletter-editor-host .gjs-cv-canvas,
+  .newsletter-editor-host .gjs-frame-wrapper {
+    max-width: 100% !important;
+  }
+
+  .newsletter-draft-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .newsletter-draft-delete {
+    padding-inline: 12px;
   }
 }

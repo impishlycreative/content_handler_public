@@ -22,8 +22,11 @@ export function createRegistry(modules) {
       return registered.filter(module => {
         if (!identity) return false;
         const grants = identity.permissions || [];
-        const hasRequired = module.permissions.every(permission => grants.includes(permission));
-        const hasAny = !module.anyPermissions.length ||
+        const isAdministrator = grants.includes('*');
+        const hasRequired = isAdministrator ||
+          module.permissions.every(permission => grants.includes(permission));
+        const hasAny = isAdministrator ||
+          !module.anyPermissions.length ||
           module.anyPermissions.some(permission => grants.includes(permission));
         return hasRequired && hasAny;
       });

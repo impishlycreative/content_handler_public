@@ -129,6 +129,7 @@ export default {
     const filters = { mine: {}, all: {}, trash: {} };
 
     const hasPermission = permission =>
+      identity.permissions.includes('*') ||
       identity.permissions.includes(permission);
     const canReadType = type =>
       hasPermission('content.read') ||

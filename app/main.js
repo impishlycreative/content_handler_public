@@ -1,10 +1,10 @@
 import config from '../config.js';
-import modules from './modules.js?v=20261003-2';
+import modules from './modules.js?v=20261003-3';
 import { validateConfig } from '../core/config.js';
 import { createFirebaseAdapter } from '../core/firebase.js';
 import { createTransport } from '../core/api.js';
 import { createSession } from '../core/session.js';
-import { createRegistry } from '../core/modules.js';
+import { createRegistry } from '../core/modules.js?v=20261003-3';
 import { startShell } from '../core/shell.js';
 import { notice } from '../core/ui.js';
 try {

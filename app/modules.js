@@ -2,6 +2,6 @@
 import content from '../modules/content/index.js';
 import calendar from '../modules/calendar/index.js?v=20261001-3';
 import users from '../modules/users/index.js?v=20261001-3';
-import newsletter from '../modules/newsletter/index.js?v=20261002-2';
+import newsletter from '../modules/newsletter/index.js?v=20261002-3';
 
 export default [content, calendar, users, newsletter];

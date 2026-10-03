@@ -301,6 +301,58 @@ function patchMjBodyEditorHeight(editor) {
   prototype.__kcwNaturalBodyHeight = true;
 }
 
+// mj-head is required in the MJML source, but it is message metadata rather
+// than visible email content. grapesjs-mjml renders its component in the canvas,
+// so hide only its editor view and leave the MJML model untouched.
+function hideMjHeadEditorView(editor) {
+  const visit = component => {
+    if (!component) return;
+
+    if (component.get?.('type') === 'mj-head' && component.view?.el?.style) {
+      component.view.el.style.setProperty('display', 'none', 'important');
+      component.view.el.style.setProperty('min-height', '0', 'important');
+      component.view.el.style.setProperty('height', '0', 'important');
+      component.view.el.style.setProperty('overflow', 'hidden', 'important');
+    }
+
+    const children = component.components?.();
+    children?.forEach?.(visit);
+  };
+
+  visit(editor?.getWrapper?.());
+}
+
+// GrapesJS' docked Style Manager is designed for a desktop-width editor.
+// On phones, collapse that chrome in JS as well as CSS so inline styles or
+// stylesheet load order cannot leave the newsletter squeezed into a narrow strip.
+function applyMobileEditorChrome(editorHost, editor, isMobile) {
+  const setImportant = (element, property, value) => {
+    if (!element?.style) return;
+    if (value === null) {
+      element.style.removeProperty(property);
+    } else {
+      element.style.setProperty(property, value, 'important');
+    }
+  };
+
+  editor?.Panels?.getPanel?.('views')?.set?.('visible', !isMobile);
+
+  editorHost
+    .querySelectorAll('.gjs-pn-views, .gjs-pn-views-container')
+    .forEach(element => {
+      setImportant(element, 'display', isMobile ? 'none' : null);
+    });
+
+  const canvas = editorHost.querySelector('.gjs-cv-canvas');
+  setImportant(canvas, 'width', isMobile ? '100%' : null);
+  setImportant(canvas, 'right', isMobile ? '0' : null);
+
+  const options = editorHost.querySelector('.gjs-pn-options');
+  setImportant(options, 'right', isMobile ? '0' : null);
+
+  editor?.Canvas?.refresh?.({ all: true });
+}
+
 function registerKcwBlocks(editor) {
   const blocks = editor.BlockManager;
   const category = 'KCW dynamic content';
@@ -461,6 +513,7 @@ export default {
           if (!editor) return;
           currentLayout = key;
           editor.setComponents(templateMarkup(key));
+          scheduleEditorChromeRefresh();
           markDirty();
           ui.status(`${label} template loaded.`);
         })
@@ -506,6 +559,35 @@ export default {
     patchMjBodyEditorHeight(editor);
     registerKcwBlocks(editor);
 
+    const mobileEditorQuery = window.matchMedia('(max-width: 760px)');
+    let mobileDeviceInitialized = false;
+
+    const refreshEditorChrome = () => {
+      hideMjHeadEditorView(editor);
+
+      if (mobileEditorQuery.matches && !mobileDeviceInitialized) {
+        editor.setDevice('Mobile portrait');
+        mobileDeviceInitialized = true;
+      } else if (!mobileEditorQuery.matches) {
+        mobileDeviceInitialized = false;
+      }
+
+      applyMobileEditorChrome(
+        editorHost,
+        editor,
+        mobileEditorQuery.matches
+      );
+    };
+
+    const scheduleEditorChromeRefresh = () => {
+      window.requestAnimationFrame(() => {
+        refreshEditorChrome();
+        window.requestAnimationFrame(refreshEditorChrome);
+      });
+    };
+
+    mobileEditorQuery.addEventListener?.('change', refreshEditorChrome);
+
     function markDirty() {
       dirty = true;
       saveState.textContent = currentId ? 'Unsaved changes' : 'New unsaved draft';
@@ -529,6 +611,7 @@ export default {
       currentLayout = 'single';
       clearFields();
       editor.setComponents(templateMarkup('single'));
+      scheduleEditorChromeRefresh();
       markDirty();
       titleField.input.focus();
       ui.status('New newsletter draft started.');
@@ -602,6 +685,7 @@ export default {
         editor.setComponents(
           stripEditorMetadata(record.mjml || templateMarkup('single'))
         );
+        scheduleEditorChromeRefresh();
 
         markSaved(record.updatedAt);
         renderDrafts();
@@ -632,6 +716,7 @@ export default {
           currentLayout = 'single';
           clearFields();
           editor.setComponents(templateMarkup('single'));
+          scheduleEditorChromeRefresh();
           dirty = false;
           saveState.textContent = 'Not saved yet';
           saveState.classList.remove('is-dirty');
@@ -744,23 +829,33 @@ export default {
     editor.on('component:remove', markDirty);
 
     editor.setComponents(templateMarkup('single'));
+    scheduleEditorChromeRefresh();
     dirty = false;
     saveState.textContent = 'Not saved yet';
 
     signal.addEventListener('abort', () => {
       disposed = true;
+      mobileEditorQuery.removeEventListener?.('change', refreshEditorChrome);
       try { editor?.destroy(); } catch {}
       preview.dialog.remove();
     }, { once: true });
 
     editor.on('load', () => {
+      scheduleEditorChromeRefresh();
       if (!disposed) ui.status('Newsletter editor loaded. Draft saving is enabled.');
+    });
+
+    editor.on('component:mount', component => {
+      if (component?.get?.('type') === 'mj-head') {
+        scheduleEditorChromeRefresh();
+      }
     });
 
     await loadDrafts();
 
     return () => {
       disposed = true;
+      mobileEditorQuery.removeEventListener?.('change', refreshEditorChrome);
       try { editor?.destroy(); } catch {}
       preview.dialog.remove();
       container.classList.remove('newsletter-module');

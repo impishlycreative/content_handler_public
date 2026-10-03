@@ -1,8 +1,52 @@
-const CONTENT_TYPES = Object.freeze([
-  { key: 'article', label: 'Article' },
-  { key: 'story', label: 'Story' },
-  { key: 'link', label: 'Link' }
+const ACCESS_GROUPS = Object.freeze([
+  {
+    id: 'CONTENT_VIEWERS',
+    label: 'Content Viewers',
+    description: 'Review Articles, Stories and Links.'
+  },
+  {
+    id: 'CONTENT_EDITORS',
+    label: 'Content Editors',
+    description: 'Create, edit and publish Articles, Stories and Links.',
+    includes: 'CONTENT_VIEWERS'
+  },
+  {
+    id: 'CALENDAR_VIEWERS',
+    label: 'Calendar Viewers',
+    description: 'View Calendar Manager entries.'
+  },
+  {
+    id: 'CALENDAR_EDITORS',
+    label: 'Calendar Editors',
+    description: 'Create and edit Calendar Manager entries.',
+    includes: 'CALENDAR_VIEWERS'
+  },
+  {
+    id: 'NEWSLETTER_VIEWERS',
+    label: 'Newsletter Viewers',
+    description: 'View existing and past newsletters.'
+  },
+  {
+    id: 'NEWSLETTER_EDITORS',
+    label: 'Newsletter Editors',
+    description: 'Create and edit newsletter drafts.',
+    includes: 'NEWSLETTER_VIEWERS'
+  },
+  {
+    id: 'ADMINISTRATORS',
+    label: 'Administrators',
+    description: 'Full Content Handler administration and access.'
+  }
 ]);
+
+const GROUP_LABELS = Object.freeze(
+  Object.fromEntries(
+    ACCESS_GROUPS.map(group => [
+      group.id,
+      group.label
+    ])
+  )
+);
 
 function el(tag, text, className) {
   const node = document.createElement(tag);
@@ -22,12 +66,6 @@ function unwrap(result) {
   return result?.data ?? result;
 }
 
-function accessLabel(value) {
-  if (value === 'WRITE') return 'Edit';
-  if (value === 'READ') return 'View';
-  return 'None';
-}
-
 export default {
   id: 'users',
   title: 'Users',
@@ -40,6 +78,8 @@ export default {
     let disposed = false;
     let users = [];
     let busy = false;
+    let dialogMode = 'create';
+    let editingUser = null;
 
     const call = async (action, data = {}) => {
       const response = await api(`users.${action}`, data);
@@ -78,7 +118,7 @@ export default {
         <div>
           <p class="eyebrow">USER MANAGEMENT</p>
           <h1>Users</h1>
-          <p class="help">Add Content Handler users and control which content types they can view or edit.</p>
+          <p class="help">Add users and manage their Content, Calendar and Newsletter access groups.</p>
         </div>
         <button id="usersAddButton" type="button" class="primary">+ Add user</button>
       </div>
@@ -90,7 +130,7 @@ export default {
         <form id="usersForm">
           <div class="users-dialog-head">
             <div>
-              <p class="eyebrow">NEW ACCOUNT</p>
+              <p id="usersDialogEyebrow" class="eyebrow">NEW ACCOUNT</p>
               <h2 id="usersDialogTitle">Add user</h2>
             </div>
             <button id="usersCloseDialog" type="button" class="users-icon-button" aria-label="Close">×</button>
@@ -108,22 +148,26 @@ export default {
             <input id="usersEmail" type="email" maxlength="254" autocomplete="off" required>
           </label>
 
-          <label>
-            Role
-            <select id="usersRole">
-              <option value="USER">User</option>
-              <option value="ADMINISTRATOR">Administrator</option>
-            </select>
-          </label>
-
           <fieldset class="users-access">
-            <legend>Content access</legend>
-            <p class="help">View allows reading that type. Edit includes View and allows creating and changing that type.</p>
-            <div class="users-access-grid" id="usersAccessGrid"></div>
+            <legend>Access groups</legend>
+            <p class="help">Editor groups include their matching Viewer access. Administrators receive all access.</p>
+            <div id="usersGroupGrid" class="users-group-grid"></div>
+
+            <label id="usersNewsletterSendRow" class="users-group-row users-group-option">
+              <input id="usersNewsletterSend" type="checkbox">
+              <span class="users-group-copy">
+                <strong>Newsletter Send</strong>
+                <small>Allow production newsletter sending when the send workflow is enabled. Requires Newsletter Editors.</small>
+              </span>
+            </label>
           </fieldset>
 
+          <div id="usersLegacyNote" class="users-admin-note" hidden>
+            This account has legacy per-type Content permissions that do not map exactly to the new groups. Saving will replace those managed Content permissions with the groups selected here.
+          </div>
+
           <div id="usersAdminNote" class="users-admin-note" hidden>
-            Administrators receive full Content, Calendar Manager, publishing, and user-management access.
+            Administrators receive full Content, Calendar, Newsletter, publishing and user-management access. Other group selections are not required.
           </div>
 
           <div class="users-dialog-actions">
@@ -138,71 +182,222 @@ export default {
     const listEl = q('#usersList');
     const dialog = q('#usersDialog');
     const form = q('#usersForm');
-    const roleSelect = q('#usersRole');
-    const accessGrid = q('#usersAccessGrid');
+    const groupGrid = q('#usersGroupGrid');
     const formError = q('#usersFormError');
+    const sendCheckbox = q('#usersNewsletterSend');
+    const groupCheckboxes = {};
 
-    const accessSelects = {};
+    for (const group of ACCESS_GROUPS) {
+      const label = el('label', undefined, 'users-group-row');
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.value = group.id;
+      checkbox.setAttribute('data-group', group.id);
+      checkbox.setAttribute('aria-label', group.label);
 
-    for (const type of CONTENT_TYPES) {
-      const label = el('label', undefined, 'users-access-row');
-      label.append(el('span', type.label, 'users-access-label'));
+      const copy = el('span', undefined, 'users-group-copy');
+      copy.append(
+        el('strong', group.label),
+        el('small', group.description)
+      );
 
-      const select = document.createElement('select');
-      select.setAttribute('aria-label', `${type.label} access`);
-
-      for (const [value, labelText] of [
-        ['NONE', 'None'],
-        ['READ', 'View'],
-        ['WRITE', 'Edit']
-      ]) {
-        const option = el('option', labelText);
-        option.value = value;
-        select.append(option);
-      }
-
-      select.value = 'WRITE';
-      accessSelects[type.key] = select;
-      label.append(select);
-      accessGrid.append(label);
+      label.append(checkbox, copy);
+      groupGrid.append(label);
+      groupCheckboxes[group.id] = checkbox;
     }
 
-    function applyRoleState() {
-      const isAdmin = roleSelect.value === 'ADMINISTRATOR';
-      q('#usersAdminNote').hidden = !isAdmin;
-
-      for (const type of CONTENT_TYPES) {
-        const select = accessSelects[type.key];
-        if (isAdmin) select.value = 'WRITE';
-        select.disabled = isAdmin;
+    function setGroupChecked(id, checked) {
+      if (groupCheckboxes[id]) {
+        groupCheckboxes[id].checked = Boolean(checked);
       }
     }
 
-    roleSelect.addEventListener('change', applyRoleState);
+    function syncGroupState() {
+      const admin =
+        groupCheckboxes.ADMINISTRATORS.checked;
+
+      const pairs = [
+        ['CONTENT_EDITORS', 'CONTENT_VIEWERS'],
+        ['CALENDAR_EDITORS', 'CALENDAR_VIEWERS'],
+        ['NEWSLETTER_EDITORS', 'NEWSLETTER_VIEWERS']
+      ];
+
+      for (const checkbox of Object.values(groupCheckboxes)) {
+        checkbox.disabled = admin && checkbox !== groupCheckboxes.ADMINISTRATORS;
+      }
+
+      for (const [editorId, viewerId] of pairs) {
+        const editor = groupCheckboxes[editorId];
+        const viewer = groupCheckboxes[viewerId];
+
+        if (!admin && editor.checked) {
+          viewer.checked = true;
+          viewer.disabled = true;
+        } else if (!admin) {
+          viewer.disabled = false;
+        }
+      }
+
+      if (admin) {
+        sendCheckbox.checked = true;
+        sendCheckbox.disabled = true;
+      } else {
+        const newsletterEditor =
+          groupCheckboxes.NEWSLETTER_EDITORS.checked;
+
+        if (!newsletterEditor) {
+          sendCheckbox.checked = false;
+        }
+
+        sendCheckbox.disabled =
+          !newsletterEditor;
+      }
+
+      q('#usersAdminNote').hidden = !admin;
+    }
+
+    for (const checkbox of Object.values(groupCheckboxes)) {
+      checkbox.addEventListener('change', syncGroupState);
+    }
+
+    function clearGroups() {
+      for (const checkbox of Object.values(groupCheckboxes)) {
+        checkbox.checked = false;
+        checkbox.disabled = false;
+      }
+      sendCheckbox.checked = false;
+      sendCheckbox.disabled = true;
+    }
+
+    function selectedGroups() {
+      if (groupCheckboxes.ADMINISTRATORS.checked) {
+        return ['ADMINISTRATORS'];
+      }
+
+      const groups = [];
+
+      for (const group of ACCESS_GROUPS) {
+        if (
+          group.id === 'ADMINISTRATORS' ||
+          !groupCheckboxes[group.id].checked
+        ) {
+          continue;
+        }
+
+        if (
+          group.includes &&
+          groupCheckboxes[group.id].checked
+        ) {
+          // Editor groups are stored without a redundant Viewer group.
+          groups.push(group.id);
+          continue;
+        }
+
+        const editorForViewer =
+          ACCESS_GROUPS.find(
+            candidate =>
+              candidate.includes === group.id
+          );
+
+        if (
+          editorForViewer &&
+          groupCheckboxes[editorForViewer.id].checked
+        ) {
+          continue;
+        }
+
+        groups.push(group.id);
+      }
+
+      return groups;
+    }
 
     function resetForm() {
       form.reset();
-      roleSelect.value = 'USER';
-      for (const type of CONTENT_TYPES) {
-        accessSelects[type.key].value = 'WRITE';
-        accessSelects[type.key].disabled = false;
-      }
+      clearGroups();
+      editingUser = null;
+      dialogMode = 'create';
+      q('#usersDisplayName').disabled = false;
+      q('#usersEmail').disabled = false;
+      q('#usersDisplayName').required = true;
+      q('#usersEmail').required = true;
+      q('#usersDialogEyebrow').textContent = 'NEW ACCOUNT';
+      q('#usersDialogTitle').textContent = 'Add user';
+      q('#usersSubmitButton').textContent = 'Add user & send invitation';
+      q('#usersLegacyNote').hidden = true;
+      q('#usersAdminNote').hidden = true;
       formError.hidden = true;
       formError.textContent = '';
-      applyRoleState();
+      syncGroupState();
     }
 
-    function openDialog() {
+    function openCreateDialog() {
       resetForm();
       dialog.showModal();
       q('#usersDisplayName').focus();
     }
 
+    function openEditDialog(user) {
+      resetForm();
+      dialogMode = 'edit';
+      editingUser = user;
+
+      q('#usersDialogEyebrow').textContent = 'ACCESS';
+      q('#usersDialogTitle').textContent = 'Edit access';
+      q('#usersSubmitButton').textContent = 'Save access';
+
+      q('#usersDisplayName').value =
+        user.displayName || '';
+      q('#usersEmail').value =
+        user.email || '';
+      q('#usersDisplayName').disabled = true;
+      q('#usersEmail').disabled = true;
+      q('#usersDisplayName').required = false;
+      q('#usersEmail').required = false;
+
+      const groups =
+        Array.isArray(user.groups)
+          ? user.groups
+          : [];
+
+      for (const id of groups) {
+        setGroupChecked(id, true);
+      }
+
+      sendCheckbox.checked =
+        user.newsletterSend === true;
+
+      q('#usersLegacyNote').hidden =
+        user.legacyCustomAccess !== true;
+
+      syncGroupState();
+      dialog.showModal();
+      groupGrid.querySelector('input:not(:disabled)')?.focus();
+    }
+
     function summaryAccess(user) {
-      return CONTENT_TYPES
-        .filter(type => user.contentAccess?.[type.key] !== 'NONE')
-        .map(type => `${type.label}: ${accessLabel(user.contentAccess?.[type.key])}`)
-        .join(' · ') || 'No Content access';
+      const groups =
+        Array.isArray(user.groups)
+          ? user.groups
+          : [];
+
+      const labels =
+        groups
+          .map(id => GROUP_LABELS[id])
+          .filter(Boolean);
+
+      if (
+        user.newsletterSend === true &&
+        !groups.includes('ADMINISTRATORS')
+      ) {
+        labels.push('Newsletter Send');
+      }
+
+      if (user.legacyCustomAccess === true) {
+        labels.push('Legacy custom Content access');
+      }
+
+      return labels.join(' · ') || 'No access groups';
     }
 
     function renderUsers() {
@@ -226,11 +421,15 @@ export default {
 
         const role = el(
           'span',
-          user.role === 'ADMINISTRATOR' ? 'Administrator' : 'User',
+          user.role === 'ADMINISTRATOR' ? 'Administrators' : 'User',
           `users-role users-role-${String(user.role || '').toLowerCase()}`
         );
 
-        const access = el('div', summaryAccess(user), 'users-access-summary');
+        const access = el(
+          'div',
+          summaryAccess(user),
+          'users-access-summary'
+        );
 
         const status = el(
           'span',
@@ -245,6 +444,12 @@ export default {
         );
 
         const actions = el('div', undefined, 'users-row-actions');
+
+        const editAccess = makeButton(
+          'Edit access',
+          'secondary',
+          () => openEditDialog(user)
+        );
 
         const resend = makeButton(
           'Resend invitation',
@@ -270,7 +475,7 @@ export default {
           user.accountStatus === 'FIREBASE_ACCOUNT_MISSING' ||
           user.accountStatus === 'FIREBASE_STATUS_UNAVAILABLE';
 
-        actions.append(resend);
+        actions.append(editAccess, resend);
         row.append(identity, role, access, status, actions);
         listEl.append(row);
       }
@@ -313,7 +518,7 @@ export default {
       }
     }
 
-    q('#usersAddButton').addEventListener('click', openDialog);
+    q('#usersAddButton').addEventListener('click', openCreateDialog);
     q('#usersCloseDialog').addEventListener('click', () => dialog.close());
     q('#usersCancelButton').addEventListener('click', () => dialog.close());
 
@@ -321,43 +526,65 @@ export default {
       formError.hidden = true;
       formError.textContent = '';
 
-      const payload = {
-        displayName: q('#usersDisplayName').value,
-        email: q('#usersEmail').value,
-        role: roleSelect.value,
-        contentAccess: Object.fromEntries(
-          CONTENT_TYPES.map(type => [
-            type.key,
-            accessSelects[type.key].value
-          ])
-        )
-      };
+      const groups = selectedGroups();
+      const newsletterSend =
+        groups.includes('ADMINISTRATORS') ||
+        sendCheckbox.checked;
 
       try {
-        const result = await call('create', payload);
-        dialog.close();
+        if (dialogMode === 'edit') {
+          const result = await call('updateAccess', {
+            uid: editingUser.uid,
+            groups,
+            newsletterSend
+          });
 
-        const messages = {
-          INVITATION_SENT:
-            `${result.user.displayName} was added and an invitation was sent to ${result.user.email}.`,
-          INVITATION_FAILED:
-            `${result.user.displayName} was added, but the invitation could not be sent. Use Resend invitation to try again.`,
-          PROFILE_FAILED:
-            `${result.user.displayName} was added and invited, but profile initialization needs attention.`,
-          PROFILE_AND_INVITATION_FAILED:
-            `${result.user.displayName} was added, but profile initialization and invitation delivery need attention.`
-        };
+          dialog.close();
+          showNotice(
+            result.status === 'ACCESS_UPDATED'
+              ? `Access updated for ${editingUser.displayName || editingUser.email || editingUser.uid}.`
+              : 'Access was updated.',
+            'users-success'
+          );
+        } else {
+          const result = await call('create', {
+            displayName: q('#usersDisplayName').value,
+            email: q('#usersEmail').value,
+            groups,
+            newsletterSend
+          });
 
-        const ok = result.status === 'INVITATION_SENT';
-        showNotice(
-          messages[result.status] || 'The user was added.',
-          ok ? 'users-success' : 'users-warning'
-        );
+          dialog.close();
+
+          const messages = {
+            INVITATION_SENT:
+              `${result.user.displayName} was added and an invitation was sent to ${result.user.email}.`,
+            INVITATION_FAILED:
+              `${result.user.displayName} was added, but the invitation could not be sent. Use Resend invitation to try again.`,
+            PROFILE_FAILED:
+              `${result.user.displayName} was added and invited, but profile initialization needs attention.`,
+            PROFILE_AND_INVITATION_FAILED:
+              `${result.user.displayName} was added, but profile initialization and invitation delivery need attention.`
+          };
+
+          const ok =
+            result.status === 'INVITATION_SENT';
+
+          showNotice(
+            messages[result.status] || 'The user was added.',
+            ok ? 'users-success' : 'users-warning'
+          );
+        }
 
         await loadUsers();
       } catch (error) {
         formError.textContent =
-          error?.message || 'The user could not be added.';
+          error?.message ||
+          (
+            dialogMode === 'edit'
+              ? 'Access could not be updated.'
+              : 'The user could not be added.'
+          );
         formError.hidden = false;
       }
     }));

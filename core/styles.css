@@ -1729,7 +1729,9 @@ dialog::backdrop {
 
 .users-row-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 7px;
 }
 
 .users-dialog {
@@ -1790,6 +1792,63 @@ dialog::backdrop {
 
 .users-access-label {
   font-weight: 750;
+}
+
+.users-group-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.users-group-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 11px;
+  align-items: start;
+  margin: 0;
+  padding: 11px 12px;
+  background: rgba(255, 255, 255, .72);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.users-group-row:has(input:disabled) {
+  cursor: default;
+  opacity: .72;
+}
+
+.users-group-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+}
+
+.users-group-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.users-group-copy strong {
+  color: var(--ink-strong);
+  font-size: .92rem;
+}
+
+.users-group-copy small {
+  color: var(--muted);
+  font-size: .78rem;
+  line-height: 1.35;
+}
+
+.users-group-option {
+  margin-top: 10px;
+  margin-left: 26px;
+  background: #f7f9f8;
+}
+
+.users-dialog input:disabled {
+  color: var(--muted);
+  background: #f1f3f2;
 }
 
 .users-dialog-actions {

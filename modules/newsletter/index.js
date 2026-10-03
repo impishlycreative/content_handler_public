@@ -425,12 +425,7 @@ export default {
   anyPermissions: [
     'newsletter.read',
     'newsletter.write',
-    'newsletter.admin',
-    'content.write',
-    'content.admin',
-    'content.article.write',
-    'content.story.write',
-    'content.link.write'
+    'newsletter.admin'
   ],
 
   async mount({ container, api, ui, signal }) {

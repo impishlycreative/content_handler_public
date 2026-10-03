@@ -295,7 +295,7 @@ function createPreviewDialog() {
     button('Close', 'secondary', () => dialog.close())
   );
 
-  const frame = document.createElement('iframe');
+  let frame = document.createElement('iframe');
   frame.title = 'Rendered newsletter email';
   frame.sandbox = 'allow-popups';
   frame.className = 'newsletter-preview-frame';
@@ -303,7 +303,20 @@ function createPreviewDialog() {
   dialog.append(bar, frame);
   document.body.append(dialog);
 
-  return { dialog, frame };
+  function show(html) {
+    const nextFrame = document.createElement('iframe');
+    nextFrame.title = 'Rendered newsletter email';
+    nextFrame.sandbox = 'allow-popups';
+    nextFrame.className = 'newsletter-preview-frame';
+    nextFrame.srcdoc = html;
+
+    frame.replaceWith(nextFrame);
+    frame = nextFrame;
+
+    if (!dialog.open) dialog.showModal();
+  }
+
+  return { dialog, show };
 }
 
 export default {
@@ -580,7 +593,12 @@ export default {
 
     function previewEmail() {
       try {
-        const mjml = editor.getHtml();
+        const mjml = editor.runCommand('mjml-code');
+
+        if (!mjml) {
+          throw new Error('MJML source could not be generated from the current layout.');
+        }
+
         const missing = validateRequiredLinks(mjml);
 
         if (missing.length) {
@@ -591,15 +609,13 @@ export default {
           return;
         }
 
-        const command = editor.Commands.get('mjml-code-to-html');
-        const result = command.run(editor, { mjml });
+        const result = editor.runCommand('mjml-code-to-html', { mjml });
 
         if (!result?.html) {
           throw new Error('MJML did not return rendered HTML.');
         }
 
-        preview.frame.srcdoc = result.html;
-        preview.dialog.showModal();
+        preview.show(result.html);
         ui.status('Rendered email HTML generated successfully.');
       } catch (error) {
         ui.status(

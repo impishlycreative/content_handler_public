@@ -228,6 +228,32 @@ function validateRequiredLinks(mjml) {
   return REQUIRED_TOKENS.filter(token => !mjml.includes(token));
 }
 
+// grapesjs-mjml 1.0.8 renders mj-body with an editor-only
+// "min-height: 100vh". That makes the Body drop target appear as a
+// large blank box above its first newsletter section. Patch only the
+// GrapesJS view; the saved MJML and rendered email remain unchanged.
+function patchMjBodyEditorHeight(editor) {
+  const type = editor?.Components?.getType?.('mj-body');
+  const prototype = type?.view?.prototype;
+
+  if (!prototype || prototype.__kcwNaturalBodyHeight) return;
+
+  const originalRenderStyle = prototype.renderStyle;
+
+  prototype.renderStyle = function(...args) {
+    const result = originalRenderStyle?.apply(this, args);
+
+    if (this.el?.style) {
+      this.el.style.setProperty('min-height', '80px', 'important');
+      this.el.style.setProperty('height', 'auto', 'important');
+    }
+
+    return result;
+  };
+
+  prototype.__kcwNaturalBodyHeight = true;
+}
+
 function registerKcwBlocks(editor) {
   const blocks = editor.BlockManager;
   const category = 'KCW dynamic content';
@@ -417,6 +443,7 @@ export default {
       }
     });
 
+    patchMjBodyEditorHeight(editor);
     registerKcwBlocks(editor);
 
     function markDirty() {

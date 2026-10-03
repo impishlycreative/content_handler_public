@@ -1734,6 +1734,16 @@ dialog::backdrop {
   gap: 7px;
 }
 
+.users-danger-button {
+  color: #71231e;
+  border-color: #e0b7b3;
+  background: #fff4f2;
+}
+
+.users-danger-button:hover {
+  background: #faeae8;
+}
+
 .users-dialog {
   width: min(700px, 94%);
 }

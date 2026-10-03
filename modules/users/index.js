@@ -72,7 +72,7 @@ export default {
   permissions: [],
   anyPermissions: ['users.admin', 'content.admin'],
 
-  async mount({ container, api, ui, signal }) {
+  async mount({ container, api, ui, signal, identity: currentIdentity }) {
     container.classList.add('users-module');
 
     let disposed = false;
@@ -461,7 +461,7 @@ export default {
               showNotice(
                 result.status === 'INVITATION_SENT'
                   ? `Invitation sent to ${user.email}.`
-                  : `The invitation to ${user.email} could not be sent.`,
+                  : `The invitation to ${user.email} could not be sent${result.invitationCode ? ` (${result.invitationCode})` : ''}.`,
                 result.status === 'INVITATION_SENT' ? 'users-success' : 'users-error'
               );
             } finally {
@@ -475,7 +475,97 @@ export default {
           user.accountStatus === 'FIREBASE_ACCOUNT_MISSING' ||
           user.accountStatus === 'FIREBASE_STATUS_UNAVAILABLE';
 
-        actions.append(editAccess, resend);
+        actions.append(editAccess);
+
+        if (
+          user.accountStatus ===
+            'FIREBASE_ACCOUNT_MISSING' &&
+          user.email
+        ) {
+          const recreate = makeButton(
+            'Recreate account',
+            'secondary',
+            safeAction(async () => {
+              recreate.disabled = true;
+              try {
+                const result = await call(
+                  'recreateAccount',
+                  { uid: user.uid }
+                );
+
+                const invitationFailed =
+                  result.status ===
+                  'ACCOUNT_RECREATED_INVITATION_FAILED';
+
+                showNotice(
+                  invitationFailed
+                    ? `Firebase account recreated for ${user.email}, but the invitation could not be sent${result.invitationCode ? ` (${result.invitationCode})` : ''}.`
+                    : `Firebase account recreated for ${user.email} using the existing UID, and an invitation was sent.`,
+                  invitationFailed
+                    ? 'users-warning'
+                    : 'users-success'
+                );
+
+                await loadUsers();
+              } finally {
+                recreate.disabled = false;
+              }
+            })
+          );
+
+          actions.append(recreate);
+        } else {
+          actions.append(resend);
+        }
+
+        const canRemove =
+          user.bootstrapAdministrator !== true &&
+          user.uid !== currentIdentity?.uid;
+
+        if (canRemove) {
+          const remove = makeButton(
+            'Remove user',
+            'secondary users-danger-button',
+            safeAction(async () => {
+              const label =
+                user.displayName ||
+                user.email ||
+                user.uid;
+
+              const confirmed =
+                window.confirm(
+                  `Remove ${label} from Content Handler? Their Firebase account, profile and authored content will be retained.`
+                );
+
+              if (!confirmed) return;
+
+              remove.disabled = true;
+              try {
+                const result = await call(
+                  'remove',
+                  { uid: user.uid }
+                );
+
+                if (
+                  result.status ===
+                  'USER_REMOVED'
+                ) {
+                  showNotice(
+                    `${label} was removed from Content Handler. Their Firebase account, profile and authored content were retained.`,
+                    'users-success'
+                  );
+                }
+
+                await loadUsers();
+              } finally {
+                remove.disabled = false;
+              }
+            })
+          );
+
+          actions.append(remove);
+        }
+
         row.append(identity, role, access, status, actions);
         listEl.append(row);
       }
@@ -560,7 +650,7 @@ export default {
             INVITATION_SENT:
               `${result.user.displayName} was added and an invitation was sent to ${result.user.email}.`,
             INVITATION_FAILED:
-              `${result.user.displayName} was added, but the invitation could not be sent. Use Resend invitation to try again.`,
+              `${result.user.displayName} was added, but the invitation could not be sent${result.invitationCode ? ` (${result.invitationCode})` : ''}. Use Resend invitation to try again.`,
             PROFILE_FAILED:
               `${result.user.displayName} was added and invited, but profile initialization needs attention.`,
             PROFILE_AND_INVITATION_FAILED:

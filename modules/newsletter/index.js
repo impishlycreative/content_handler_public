@@ -56,6 +56,29 @@ function button(text, className, onClick) {
   return node;
 }
 
+function unwrap(result) {
+  return result?.data ?? result;
+}
+
+function formatDate(value) {
+  if (!value) return 'Not saved yet';
+  const date = new Date(value);
+  return Number.isFinite(date.getTime())
+    ? date.toLocaleString()
+    : 'Not saved yet';
+}
+
+function textInput(label, maxLength, placeholder = '') {
+  const wrapper = el('label', undefined, 'newsletter-field');
+  const caption = el('span', label, 'newsletter-field-label');
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.maxLength = maxLength;
+  input.placeholder = placeholder;
+  wrapper.append(caption, input);
+  return { wrapper, input };
+}
+
 function headerMarkup() {
   return `
     <mj-section background-color="${THEME.primaryDark}" padding="22px 24px">
@@ -272,57 +295,73 @@ export default {
     'content.link.write'
   ],
 
-  async mount({ container, ui, signal }) {
+  async mount({ container, api, ui, signal }) {
     ensureEditorStylesheet();
     const { grapesjs, grapesJSMJML } = await loadEditorDependencies();
     if (signal.aborted) throw new DOMException('Module closed.', 'AbortError');
+
     container.classList.add('newsletter-module');
 
     let editor = null;
     let disposed = false;
+    let currentId = '';
+    let currentLayout = 'single';
+    let drafts = [];
+    let dirty = false;
     const preview = createPreviewDialog();
+
+    const call = async (action, data = {}) => {
+      const response = await api(`newsletter.${action}`, data);
+      if (disposed || signal.aborted) {
+        throw new DOMException('Module closed.', 'AbortError');
+      }
+      return unwrap(response);
+    };
 
     const toolbar = el('div', undefined, 'newsletter-toolbar');
     const heading = el('div');
     heading.append(
-      el('p', 'NEWSLETTER PROTOTYPE', 'eyebrow'),
+      el('p', 'NEWSLETTER', 'eyebrow'),
       el('h1', 'Newsletter designer'),
       el(
         'p',
-        'Drag email-safe blocks into an approved layout. This proof-of-concept generates final HTML in the browser; saving and sending remain disconnected.',
+        'Create and save editable newsletter drafts. Test and production sending remain disabled in this build.',
         'help'
       )
     );
 
     const actions = el('div', undefined, 'newsletter-actions');
-    const previewButton = button('Preview email', 'primary', () => {
-      try {
-        const mjml = editor.getHtml();
-        const missing = validateRequiredLinks(mjml);
-        if (missing.length) {
-          ui.status('Preview blocked: the required unsubscribe, preferences, and privacy links must be present.', 'error');
-          return;
-        }
-
-        const command = editor.Commands.get('mjml-code-to-html');
-        const result = command.run(editor, { mjml });
-        if (!result?.html) throw new Error('MJML did not return rendered HTML.');
-
-        preview.frame.srcdoc = result.html;
-        preview.dialog.showModal();
-        ui.status('Rendered email HTML generated successfully.');
-      } catch (error) {
-        ui.status(error?.message || 'The email preview could not be generated.', 'error');
-      }
-    });
-
-    actions.append(previewButton);
+    const newButton = button('New draft', 'secondary', () => newDraft());
+    const saveButton = button('Save draft', 'primary', () => saveDraft());
+    const previewButton = button('Preview email', 'secondary', () => previewEmail());
+    actions.append(newButton, saveButton, previewButton);
     toolbar.append(heading, actions);
+
+    const details = el('section', undefined, 'newsletter-details');
+    const titleField = textInput('Internal title', 160, 'October weekly newsletter');
+    const subjectField = textInput('Email subject', 200, 'This week at Kemptville Creative Writers');
+    const previewField = textInput('Preview text', 300, 'A short inbox preview shown by many mail clients');
+    const saveState = el('span', 'Not saved yet', 'newsletter-save-state');
+    details.append(
+      titleField.wrapper,
+      subjectField.wrapper,
+      previewField.wrapper,
+      saveState
+    );
+
+    const draftsPanel = el('section', undefined, 'newsletter-drafts-panel');
+    const draftsHead = el('div', undefined, 'newsletter-drafts-head');
+    draftsHead.append(
+      el('strong', 'Saved drafts'),
+      button('Refresh', 'secondary newsletter-small-button', () => loadDrafts())
+    );
+    const draftsList = el('div', undefined, 'newsletter-drafts-list');
+    draftsPanel.append(draftsHead, draftsList);
 
     const templatePanel = el('section', undefined, 'newsletter-template-panel');
     templatePanel.append(
       el('strong', 'Approved layouts'),
-      el('span', 'Choose a starting structure. The editor can then rearrange content within it.', 'help')
+      el('span', 'Choose a starting structure. Loading a layout replaces the current canvas.', 'help')
     );
 
     const templateButtons = el('div', undefined, 'newsletter-template-buttons');
@@ -334,7 +373,9 @@ export default {
       templateButtons.append(
         button(label, 'secondary', () => {
           if (!editor) return;
+          currentLayout = key;
           editor.setComponents(templateMarkup(key));
+          markDirty();
           ui.status(`${label} template loaded.`);
         })
       );
@@ -343,14 +384,20 @@ export default {
 
     const note = el(
       'div',
-      'Prototype note: Current Schedule and Featured Item are real drag-and-drop blocks, but they contain sample data until the Calendar service boundary is connected. The final footer tokens are already enforced before preview.',
+      'Current Schedule and Featured Item are drag-and-drop blocks with sample data for now. Saved drafts are stored in Firestore. Sending remains disconnected.',
       'newsletter-prototype-note'
     );
 
+    const workspace = el('div', undefined, 'newsletter-persistence-layout');
+    const side = el('aside', undefined, 'newsletter-persistence-side');
+    const main = el('div', undefined, 'newsletter-persistence-main');
+    side.append(draftsPanel, details, templatePanel, note);
+
     const editorHost = el('div', undefined, 'newsletter-editor-host');
     editorHost.id = `newsletter-editor-${crypto.randomUUID?.() || Date.now()}`;
-
-    container.append(toolbar, templatePanel, note, editorHost);
+    main.append(editorHost);
+    workspace.append(side, main);
+    container.append(toolbar, workspace);
 
     editor = grapesjs.init({
       container: editorHost,
@@ -371,7 +418,185 @@ export default {
     });
 
     registerKcwBlocks(editor);
+
+    function markDirty() {
+      dirty = true;
+      saveState.textContent = currentId ? 'Unsaved changes' : 'New unsaved draft';
+      saveState.classList.add('is-dirty');
+    }
+
+    function markSaved(updatedAt) {
+      dirty = false;
+      saveState.textContent = `Saved ${formatDate(updatedAt)}`;
+      saveState.classList.remove('is-dirty');
+    }
+
+    function clearFields() {
+      titleField.input.value = '';
+      subjectField.input.value = '';
+      previewField.input.value = '';
+    }
+
+    function newDraft() {
+      currentId = '';
+      currentLayout = 'single';
+      clearFields();
+      editor.setComponents(templateMarkup('single'));
+      markDirty();
+      titleField.input.focus();
+      ui.status('New newsletter draft started.');
+    }
+
+    function renderDrafts() {
+      draftsList.replaceChildren();
+
+      if (!drafts.length) {
+        draftsList.append(el('p', 'No saved newsletter drafts yet.', 'help'));
+        return;
+      }
+
+      for (const draft of drafts) {
+        const row = button('', 'newsletter-draft-row', () => openDraft(draft.id));
+        const copy = el('span', undefined, 'newsletter-draft-copy');
+        copy.append(
+          el('strong', draft.title || 'Untitled newsletter'),
+          el('small', draft.subject || 'No email subject yet'),
+          el('small', `Updated ${formatDate(draft.updatedAt)}`)
+        );
+        const status = el('span', draft.status || 'DRAFT', 'newsletter-draft-status');
+        row.append(copy, status);
+        if (draft.id === currentId) row.classList.add('is-current');
+        draftsList.append(row);
+      }
+    }
+
+    async function loadDrafts() {
+      try {
+        drafts = await call('list', { scope: 'mine' });
+        if (!Array.isArray(drafts)) drafts = [];
+        renderDrafts();
+      } catch (error) {
+        drafts = [];
+        renderDrafts();
+        ui.status(
+          error?.message || 'Saved newsletter drafts could not be loaded.',
+          'error'
+        );
+      }
+    }
+
+    async function openDraft(id) {
+      if (!id) return;
+
+      try {
+        const record = await call('get', { id });
+        currentId = record.id;
+        currentLayout = record.layout || 'custom';
+        titleField.input.value = record.title || '';
+        subjectField.input.value = record.subject || '';
+        previewField.input.value = record.previewText || '';
+
+        editor.setComponents(record.mjml || templateMarkup('single'));
+
+        markSaved(record.updatedAt);
+        renderDrafts();
+        ui.status(`Opened ${record.title || 'newsletter draft'}.`);
+      } catch (error) {
+        ui.status(
+          error?.message || 'The newsletter draft could not be opened.',
+          'error'
+        );
+      }
+    }
+
+    async function saveDraft() {
+      if (!editor || saveButton.disabled) return;
+
+      const title = titleField.input.value.trim();
+      if (!title) {
+        ui.status('Enter an internal title before saving the newsletter.', 'error');
+        titleField.input.focus();
+        return;
+      }
+
+      saveButton.disabled = true;
+
+      try {
+        const mjml = editor.getHtml();
+        const result = await call('save', {
+          id: currentId || undefined,
+          title,
+          subject: subjectField.input.value.trim(),
+          previewText: previewField.input.value.trim(),
+          layout: currentLayout || 'custom',
+          status: 'DRAFT',
+          mjml
+        });
+
+        const record = result.newsletter || result;
+        currentId = record.id;
+        currentLayout = record.layout || currentLayout;
+        markSaved(record.updatedAt);
+
+        await loadDrafts();
+        renderDrafts();
+        ui.status('Newsletter draft saved to Firestore.');
+      } catch (error) {
+        ui.status(
+          error?.message || 'The newsletter draft could not be saved.',
+          'error'
+        );
+      } finally {
+        saveButton.disabled = false;
+      }
+    }
+
+    function previewEmail() {
+      try {
+        const mjml = editor.getHtml();
+        const missing = validateRequiredLinks(mjml);
+
+        if (missing.length) {
+          ui.status(
+            'Preview blocked: the required unsubscribe, preferences, and privacy links must be present.',
+            'error'
+          );
+          return;
+        }
+
+        const command = editor.Commands.get('mjml-code-to-html');
+        const result = command.run(editor, { mjml });
+
+        if (!result?.html) {
+          throw new Error('MJML did not return rendered HTML.');
+        }
+
+        preview.frame.srcdoc = result.html;
+        preview.dialog.showModal();
+        ui.status('Rendered email HTML generated successfully.');
+      } catch (error) {
+        ui.status(
+          error?.message || 'The email preview could not be generated.',
+          'error'
+        );
+      }
+    }
+
+    for (const input of [
+      titleField.input,
+      subjectField.input,
+      previewField.input
+    ]) {
+      input.addEventListener('input', markDirty);
+    }
+
+    editor.on('component:update', markDirty);
+    editor.on('component:add', markDirty);
+    editor.on('component:remove', markDirty);
+
     editor.setComponents(templateMarkup('single'));
+    dirty = false;
+    saveState.textContent = 'Not saved yet';
 
     signal.addEventListener('abort', () => {
       disposed = true;
@@ -380,8 +605,10 @@ export default {
     }, { once: true });
 
     editor.on('load', () => {
-      if (!disposed) ui.status('Newsletter editor prototype loaded.');
+      if (!disposed) ui.status('Newsletter editor loaded. Draft saving is enabled.');
     });
+
+    await loadDrafts();
 
     return () => {
       disposed = true;

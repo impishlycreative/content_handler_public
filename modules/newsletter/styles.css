@@ -129,3 +129,140 @@
     min-height: 620px;
   }
 }
+
+
+.newsletter-persistence-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 330px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.newsletter-persistence-side {
+  display: grid;
+  gap: 12px;
+}
+
+.newsletter-persistence-main {
+  min-width: 0;
+}
+
+.newsletter-details,
+.newsletter-drafts-panel {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  background: rgba(255, 255, 255, .9);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+}
+
+.newsletter-field {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.newsletter-field-label {
+  color: var(--ink);
+  font-size: .82rem;
+  font-weight: 760;
+}
+
+.newsletter-save-state {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: .8rem;
+}
+
+.newsletter-save-state.is-dirty {
+  color: var(--amber-ink);
+  font-weight: 700;
+}
+
+.newsletter-drafts-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.newsletter-small-button {
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  font-size: .78rem;
+}
+
+.newsletter-drafts-list {
+  display: grid;
+  gap: 7px;
+}
+
+.newsletter-draft-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 11px;
+  color: var(--ink);
+  text-align: left;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.newsletter-draft-row.is-current {
+  border-color: #9ab9a8;
+  box-shadow: inset 3px 0 0 var(--green-600);
+}
+
+.newsletter-draft-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.newsletter-draft-copy strong,
+.newsletter-draft-copy small {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.newsletter-draft-copy small {
+  color: var(--muted);
+  font-size: .72rem;
+}
+
+.newsletter-draft-status {
+  flex: 0 0 auto;
+  padding: 4px 6px;
+  color: #176c50;
+  background: #dcf1e6;
+  border-radius: 999px;
+  font-size: .62rem;
+  font-weight: 850;
+}
+
+@media (max-width: 1050px) {
+  .newsletter-persistence-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .newsletter-persistence-side {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .newsletter-prototype-note {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .newsletter-persistence-side {
+    grid-template-columns: 1fr;
+  }
+}

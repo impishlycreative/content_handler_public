@@ -461,7 +461,7 @@ export default {
               showNotice(
                 result.status === 'INVITATION_SENT'
                   ? `Invitation sent to ${user.email}.`
-                  : `The invitation to ${user.email} could not be sent${result.invitationCode ? ` (${result.invitationCode})` : ''}.`,
+                  : `The invitation to ${user.email} could not be sent${result.invitationCode ? ` (${result.invitationCode})` : ''}${result.invitationProviderMessage ? `: ${result.invitationProviderMessage}` : ''}.`,
                 result.status === 'INVITATION_SENT' ? 'users-success' : 'users-error'
               );
             } finally {
@@ -499,7 +499,7 @@ export default {
 
                 showNotice(
                   invitationFailed
-                    ? `Firebase account recreated for ${user.email}, but the invitation could not be sent${result.invitationCode ? ` (${result.invitationCode})` : ''}.`
+                    ? `Firebase account recreated for ${user.email}, but the invitation could not be sent${result.invitationCode ? ` (${result.invitationCode})` : ''}${result.invitationProviderMessage ? `: ${result.invitationProviderMessage}` : ''}.`
                     : `Firebase account recreated for ${user.email} using the existing UID, and an invitation was sent.`,
                   invitationFailed
                     ? 'users-warning'
@@ -650,7 +650,7 @@ export default {
             INVITATION_SENT:
               `${result.user.displayName} was added and an invitation was sent to ${result.user.email}.`,
             INVITATION_FAILED:
-              `${result.user.displayName} was added, but the invitation could not be sent${result.invitationCode ? ` (${result.invitationCode})` : ''}. Use Resend invitation to try again.`,
+              `${result.user.displayName} was added, but the invitation could not be sent${result.invitationCode ? ` (${result.invitationCode})` : ''}${result.invitationProviderMessage ? `: ${result.invitationProviderMessage}` : ''}. Use Resend invitation to try again.`,
             PROFILE_FAILED:
               `${result.user.displayName} was added and invited, but profile initialization needs attention.`,
             PROFILE_AND_INVITATION_FAILED:

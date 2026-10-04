@@ -439,7 +439,9 @@ export default {
               ? 'Firebase account missing'
               : user.accountStatus === 'FIREBASE_STATUS_UNAVAILABLE'
                 ? 'Firebase status unavailable'
-                : 'Active',
+                : user.accountStatus === 'NEVER_SIGNED_IN'
+                  ? 'Never signed in'
+                  : 'Active',
           `users-status users-status-${String(user.accountStatus || '').toLowerCase()}`
         );
 
@@ -460,7 +462,7 @@ export default {
               const result = await call('resendInvitation', { uid: user.uid });
               showNotice(
                 result.status === 'INVITATION_SENT'
-                  ? `Invitation sent to ${user.email}.`
+                  ? `Invitation accepted by MXroute for delivery to ${user.email}${result.invitationProviderMessage ? `: ${result.invitationProviderMessage}` : ''}.`
                   : `The invitation to ${user.email} could not be sent${result.invitationCode ? ` (${result.invitationCode})` : ''}${result.invitationProviderMessage ? `: ${result.invitationProviderMessage}` : ''}.`,
                 result.status === 'INVITATION_SENT' ? 'users-success' : 'users-error'
               );
@@ -500,7 +502,7 @@ export default {
                 showNotice(
                   invitationFailed
                     ? `Firebase account recreated for ${user.email}, but the invitation could not be sent${result.invitationCode ? ` (${result.invitationCode})` : ''}${result.invitationProviderMessage ? `: ${result.invitationProviderMessage}` : ''}.`
-                    : `Firebase account recreated for ${user.email} using the existing UID, and an invitation was sent.`,
+                    : `Firebase account recreated for ${user.email} using the existing UID. MXroute accepted the invitation for delivery${result.invitationProviderMessage ? `: ${result.invitationProviderMessage}` : ''}.`,
                   invitationFailed
                     ? 'users-warning'
                     : 'users-success'
@@ -648,7 +650,7 @@ export default {
 
           const messages = {
             INVITATION_SENT:
-              `${result.user.displayName} was added and an invitation was sent to ${result.user.email}.`,
+              `${result.user.displayName} was added. MXroute accepted the invitation for delivery to ${result.user.email}${result.invitationProviderMessage ? `: ${result.invitationProviderMessage}` : ''}.`,
             INVITATION_FAILED:
               `${result.user.displayName} was added, but the invitation could not be sent${result.invitationCode ? ` (${result.invitationCode})` : ''}${result.invitationProviderMessage ? `: ${result.invitationProviderMessage}` : ''}. Use Resend invitation to try again.`,
             PROFILE_FAILED:

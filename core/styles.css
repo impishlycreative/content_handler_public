@@ -1722,7 +1722,8 @@ dialog::backdrop {
 }
 
 .users-status-disabled,
-.users-status-firebase_account_missing {
+.users-status-firebase_account_missing,
+.users-status-never_signed_in {
   color: var(--amber-ink);
   background: var(--amber-soft);
 }

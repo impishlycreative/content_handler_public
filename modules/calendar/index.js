@@ -420,8 +420,14 @@ export default {
             if (!confirmed) return;
 
             try {
-              await call('deleteEvent', { id: event.id });
-              showStatus('Event deleted.', 'calendar-success');
+              const result = await call('deleteEvent', { id: event.id });
+              const shareFailed = result?.share?.ok === false;
+              showStatus(
+                shareFailed
+                  ? 'Event deleted, but its old Facebook share link could not be retired.'
+                  : 'Event deleted.',
+                shareFailed ? 'calendar-error' : 'calendar-success'
+              );
               await loadEvents();
             } catch (error) {
               showStatus(errorMessage(error), 'calendar-error');
@@ -566,19 +572,26 @@ export default {
 
       try {
         Object.assign(payload, await imageEditor.forSave());
-        await call(id ? 'updateEvent' : 'createEvent', payload);
+        const result = await call(id ? 'updateEvent' : 'createEvent', payload);
 
         const clearedImage = imageEditor.saved();
 
         dialog.close();
+        const shareFailed = result?.share?.ok === false;
+        const shareMessage = shareFailed
+          ? ' Facebook sharing file could not be published; save the event again to retry.'
+          : (status === 'Published' && result?.share?.ok === true
+              ? ' Facebook sharing file created for site sync.'
+              : '');
         showStatus(
           (status === 'Draft'
             ? 'Event saved as draft.'
             : 'Event published.') +
+            shareMessage +
             (clearedImage
               ? ''
               : ' The local image copy could not be cleared from browser storage.'),
-          'calendar-success'
+          shareFailed ? 'calendar-error' : 'calendar-success'
         );
 
         await loadEvents();

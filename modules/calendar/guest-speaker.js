@@ -1,4 +1,4 @@
-import calendar from './browser.js?v=20261007-1';
+import calendar from './browser.js?v=20261007-2';
 
 const GUEST_SPEAKER_TYPE = 'Guest Speaker';
 

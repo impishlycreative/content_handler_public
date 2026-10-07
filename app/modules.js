@@ -1,6 +1,6 @@
 // Application composition is the only frontend place that imports modules.
 import content from '../modules/content/index.js?v=20261003-3';
-import calendar from '../modules/calendar/guest-speaker.js?v=20261007-1';
+import calendar from '../modules/calendar/guest-speaker.js?v=20261007-2';
 import users from '../modules/users/index.js?v=20261003-8';
 import newsletter from '../modules/newsletter/index.js?v=20261003-5';
 

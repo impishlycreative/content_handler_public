@@ -168,8 +168,18 @@
   background: #eef5ef;
   border: 1px solid #cfddd1;
   border-radius: 8px;
+  font: inherit;
   font-size: .78rem;
   line-height: 1.25;
+  cursor: pointer;
+}
+
+.calendar-browser-event:hover,
+.calendar-browser-event:focus-visible {
+  background: #e2eee4;
+  border-color: #8fac93;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(11, 90, 70, .16);
 }
 
 .calendar-browser-event-time {

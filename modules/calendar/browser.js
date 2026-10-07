@@ -15,7 +15,7 @@ function ensureStyles() {
   const link = document.createElement('link');
   link.id = STYLE_ID;
   link.rel = 'stylesheet';
-  link.href = new URL('./browser.css?v=20261006-1', import.meta.url).href;
+  link.href = new URL('./browser.css?v=20261006-2', import.meta.url).href;
   document.head.append(link);
 }
 
@@ -101,9 +101,13 @@ function groupEvents(events) {
   return grouped;
 }
 
-function eventNode(event) {
-  const item = document.createElement('div');
+function eventNode(event, onEdit) {
+  const item = document.createElement('button');
+  item.type = 'button';
   item.className = 'calendar-browser-event';
+  item.title = `Edit ${event.title || 'untitled event'}`;
+  item.setAttribute('aria-label', `Edit ${event.title || 'untitled event'}`);
+  item.addEventListener('click', () => onEdit(event));
 
   const time = document.createElement('span');
   time.className = 'calendar-browser-event-time';
@@ -147,7 +151,7 @@ function createBrowser({ container, serviceApi, signal }) {
       <span id="calendarBrowserCount" class="calendar-browser-count"></span>
     </div>
     <div id="calendarBrowserGrid" class="calendar-browser-grid" aria-live="polite"></div>
-    <p class="calendar-browser-window-note help">Calendar browsing uses the service's configured archive and upcoming-event window.</p>
+    <p class="calendar-browser-window-note help">Click an event to edit it. Calendar browsing uses the service's configured archive and upcoming-event window.</p>
   `;
 
   const manageHeading = document.createElement('h2');
@@ -165,6 +169,47 @@ function createBrowser({ container, serviceApi, signal }) {
   let events = [];
   let disposed = false;
   let requestId = 0;
+  const eventCards = new Map();
+
+  function bindManageCards() {
+    if (disposed || !events.length) return;
+    const cards = [...eventList.querySelectorAll('.calendar-event-card')];
+    if (cards.length !== events.length) return;
+
+    eventCards.clear();
+    events.forEach((event, index) => {
+      const card = cards[index];
+      if (!card || !event?.id) return;
+      card.dataset.calendarEventId = event.id;
+      card.hidden = event.state === 'Archived';
+      eventCards.set(event.id, card);
+    });
+  }
+
+  function openEditor(event) {
+    bindManageCards();
+    const card = eventCards.get(event.id);
+    const editButton = card
+      ? [...card.querySelectorAll('button')].find(button => button.textContent.trim() === 'Edit')
+      : null;
+
+    if (editButton) {
+      editButton.click();
+      return;
+    }
+
+    const status = container.querySelector('#calendarStatus');
+    if (status) {
+      status.textContent = 'The event editor could not be opened. Reload Calendar Manager and try again.';
+      status.className = 'calendar-notice calendar-error';
+      status.hidden = false;
+    }
+  }
+
+  const manageObserver = new MutationObserver(() => {
+    queueMicrotask(bindManageCards);
+  });
+  manageObserver.observe(eventList, { childList: true });
 
   function dayCell(date, grouped, outsideMonth = false) {
     const day = key(date);
@@ -188,7 +233,7 @@ function createBrowser({ container, serviceApi, signal }) {
 
     const items = document.createElement('div');
     items.className = 'calendar-browser-day-events';
-    (grouped.get(day) || []).forEach(event => items.append(eventNode(event)));
+    (grouped.get(day) || []).forEach(event => items.append(eventNode(event, openEditor)));
     cell.append(dateButton, items);
     return cell;
   }
@@ -212,7 +257,7 @@ function createBrowser({ container, serviceApi, signal }) {
       visible = items.length;
       const wrap = document.createElement('div');
       wrap.className = 'calendar-browser-day-view';
-      if (items.length) items.forEach(event => wrap.append(eventNode(event)));
+      if (items.length) items.forEach(event => wrap.append(eventNode(event, openEditor)));
       else {
         const empty = document.createElement('div');
         empty.className = 'empty';
@@ -268,6 +313,7 @@ function createBrowser({ container, serviceApi, signal }) {
       if (disposed || signal.aborted || currentRequest !== requestId) return;
       events = Array.isArray(result?.events) ? result.events : [];
       render();
+      bindManageCards();
     } catch {
       if (disposed || signal.aborted || currentRequest !== requestId) return;
       grid.innerHTML = '<div class="calendar-notice calendar-error">The calendar browser could not load events.</div>';
@@ -297,6 +343,7 @@ function createBrowser({ container, serviceApi, signal }) {
     destroy() {
       disposed = true;
       requestId += 1;
+      manageObserver.disconnect();
       manageHeading.remove();
       section.remove();
     }
@@ -308,8 +355,18 @@ export default {
   async mount(context) {
     let browser = null;
     const wrappedServiceApi = async (...args) => {
-      const result = await context.serviceApi(...args);
-      if (args[0] === 'calendar' && MUTATIONS.has(args[1])) {
+      const callArgs = [...args];
+      if (
+        callArgs[0] === 'calendar' &&
+        callArgs[1] === 'listEvents' &&
+        callArgs[2]?.status === 'All' &&
+        callArgs[2]?.state === undefined
+      ) {
+        callArgs[2] = { ...callArgs[2], state: 'All' };
+      }
+
+      const result = await context.serviceApi(...callArgs);
+      if (callArgs[0] === 'calendar' && MUTATIONS.has(callArgs[1])) {
         queueMicrotask(() => browser?.refresh());
       }
       return result;

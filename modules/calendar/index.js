@@ -1,4 +1,5 @@
-import { createImageEditor, safeImageUrl } from './image-editor.js';
+import config from '../../config.js';
+import { createImageEditor, safeImageUrl } from './image-editor.js?v=20261007-1';
 
 function descriptionText(value) {
   const template = document.createElement('template');
@@ -62,7 +63,7 @@ function makeButton(text, className, onClick) {
   return button;
 }
 
-function previewNode(event) {
+function previewNode(event, assetBaseUrl) {
   const article = document.createElement('article');
   article.className = 'calendar-site-preview';
 
@@ -94,7 +95,7 @@ function previewNode(event) {
 
   body.append(type, title);
 
-  const imageUrl = safeImageUrl(event.image);
+  const imageUrl = safeImageUrl(event.image, assetBaseUrl);
   if (imageUrl) {
     const image = document.createElement('img');
     image.className = 'calendar-preview-image';
@@ -168,6 +169,7 @@ export default {
 
   async mount({ container, identity, serviceApi, ui, signal }) {
     container.classList.add('calendar-module');
+    const assetBaseUrl = config.calendarAssetBaseUrl || '/';
 
     container.innerHTML = `
       <div class="calendar-toolbar">
@@ -301,7 +303,8 @@ export default {
     const imageEditor = createImageEditor({
       root: container,
       userId: identity.uid,
-      api: call
+      api: call,
+      assetBaseUrl
     });
 
     const showStatus = (message, kind = '') => {
@@ -344,7 +347,7 @@ export default {
     };
 
     function openPreview(event) {
-      q('#calendarPreviewContent').replaceChildren(previewNode(event));
+      q('#calendarPreviewContent').replaceChildren(previewNode(event, assetBaseUrl));
       previewDialog.showModal();
     }
 

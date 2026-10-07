@@ -1,5 +1,4 @@
 const STORAGE_PREFIX = 'content-handler:calendar-image:v1:';
-const IMAGE_BASE = 'https://impishlycreative.github.io/calendar_manager/kcw-calendar-site/';
 
 const TYPES = Object.freeze({
   'image/jpeg': 'jpg',
@@ -7,11 +6,19 @@ const TYPES = Object.freeze({
   'image/webp': 'webp'
 });
 
-export function safeImageUrl(value) {
+function normalizedAssetBase(value) {
+  try {
+    return new URL(value || '/', document.baseURI).href;
+  } catch {
+    return new URL('/', document.baseURI).href;
+  }
+}
+
+export function safeImageUrl(value, assetBaseUrl = '/') {
   if (!value) return '';
 
   if (/^images\/[A-Za-z0-9_-]+\.(jpg|png|webp)$/.test(value)) {
-    return new URL(value, IMAGE_BASE).href;
+    return new URL(value, normalizedAssetBase(assetBaseUrl)).href;
   }
 
   if (/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value)) {
@@ -31,7 +38,7 @@ function newFilename(extension) {
   return `event_${Date.now()}${random}.${extension}`;
 }
 
-export function createImageEditor({ root, userId, api }) {
+export function createImageEditor({ root, userId, api, assetBaseUrl = '/' }) {
   const file = root.querySelector('#calendarImageFile');
   const choose = root.querySelector('#calendarChooseImage');
   const selection = root.querySelector('#calendarImageSelection');
@@ -62,7 +69,7 @@ export function createImageEditor({ root, userId, api }) {
   };
 
   const draw = () => {
-    const src = safeImageUrl(pending?.dataUrl || existing.image);
+    const src = safeImageUrl(pending?.dataUrl || existing.image, assetBaseUrl);
 
     if (src) thumbnail.src = src;
     else thumbnail.removeAttribute('src');
@@ -85,7 +92,7 @@ export function createImageEditor({ root, userId, api }) {
 
     message(
       pending
-        ? 'Image kept in this browser. It will upload to GitHub when you save as draft or publish.'
+        ? 'Image kept in this browser. It will upload when you save as draft or publish.'
         : 'Choose a JPEG, PNG, or WebP image up to 2 MB.'
     );
   };
@@ -190,7 +197,7 @@ export function createImageEditor({ root, userId, api }) {
         if (
           saved &&
           TYPES[saved.mimeType] &&
-          safeImageUrl(saved.dataUrl).startsWith('data:')
+          safeImageUrl(saved.dataUrl, assetBaseUrl).startsWith('data:')
         ) {
           pending = saved;
 
@@ -256,7 +263,7 @@ export function createImageEditor({ root, userId, api }) {
           }
         }
 
-        const address = safeImageUrl(result?.image);
+        const address = safeImageUrl(result?.image, assetBaseUrl);
 
         if (!address || address.startsWith('data:')) {
           throw new Error(

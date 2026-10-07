@@ -15,6 +15,9 @@ export default {
   serviceApiUrls: {
     calendar: 'https://script.google.com/macros/s/AKfycbyvxfJniOdH81RLvZT2_0_yicxGIcrlTUuTvzXw96u0qnVUQ5ZllW84JvsnsY4DD0jh/exec'
   },
+  // Calendar records store relative paths such as images/event_123.png.
+  // Set this to '/' when the current web server exposes those files at /images/.
+  calendarAssetBaseUrl: 'https://raw.githubusercontent.com/impishlycreative/calendar_manager/main/kcw-calendar-site/',
   sessionMs: 60 * 60 * 1000,
   requestTimeoutMs: 20000
 };

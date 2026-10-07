@@ -1,4 +1,4 @@
-import calendar from './index.js?v=20261001-3';
+import calendar from './index.js?v=20261007-1';
 
 const TZ = 'America/Toronto';
 const STYLE_ID = 'calendar-browser-styles';

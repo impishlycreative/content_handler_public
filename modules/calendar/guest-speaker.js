@@ -98,6 +98,74 @@ function addGuestSpeakerEditor(container) {
   };
 }
 
+function addShareRebuildButton(context) {
+  const toolbar = context.container.querySelector('.calendar-toolbar');
+  const status = context.container.querySelector('#calendarStatus');
+
+  if (!toolbar || !status) {
+    throw new Error('Calendar share rebuild control could not find the calendar toolbar.');
+  }
+
+  const button = document.createElement('button');
+  button.id = 'calendarRebuildShares';
+  button.type = 'button';
+  button.className = 'secondary';
+  button.textContent = 'Rebuild share pages';
+  button.title = 'Rebuild Open Graph share pages for all upcoming public Google Calendar events.';
+
+  const addButton = toolbar.querySelector('#calendarAddButton');
+  if (addButton) toolbar.insertBefore(button, addButton);
+  else toolbar.append(button);
+
+  const showStatus = (message, kind = '') => {
+    status.textContent = message;
+    status.className = `calendar-notice ${kind}`.trim();
+    status.hidden = false;
+  };
+
+  const onClick = async () => {
+    if (button.disabled) return;
+
+    const confirmed = await context.ui.confirm(
+      'Rebuild share pages for all upcoming public calendar events? Existing pages will only be updated when their generated content has changed.'
+    );
+    if (!confirmed) return;
+
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Rebuilding…';
+    showStatus('Rebuilding event share pages…');
+
+    try {
+      const result = await context.serviceApi('calendar', 'rebuildEventShares', {});
+      const rebuild = result?.rebuild || {};
+      const total = Number(rebuild.total || 0);
+      const created = Number(rebuild.created || 0);
+      const updated = Number(rebuild.updated || 0);
+      const unchanged = Number(rebuild.unchanged || 0);
+      const failed = Number(rebuild.failed || 0);
+
+      showStatus(
+        `Share-page rebuild complete: ${total} checked, ${created} created, ${updated} updated, ${unchanged} unchanged${failed ? `, ${failed} failed` : ''}.`,
+        failed ? 'calendar-error' : 'calendar-success'
+      );
+    } catch (error) {
+      const message = error?.message || 'The share pages could not be rebuilt.';
+      showStatus(message, 'calendar-error');
+    } finally {
+      button.disabled = false;
+      button.textContent = originalText;
+    }
+  };
+
+  button.addEventListener('click', onClick);
+
+  return () => {
+    button.removeEventListener('click', onClick);
+    button.remove();
+  };
+}
+
 export default {
   ...calendar,
 
@@ -136,6 +204,10 @@ export default {
     }
 
     editor = addGuestSpeakerEditor(context.container);
+    const removeShareRebuildButton = addShareRebuildButton({
+      ...context,
+      serviceApi
+    });
 
     const syncFromDialog = () => {
       if (!editor.dialog.open) return;
@@ -158,6 +230,7 @@ export default {
 
     return () => {
       dialogObserver.disconnect();
+      removeShareRebuildButton?.();
       editor?.destroy();
       cleanup?.();
     };

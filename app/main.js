@@ -1,5 +1,5 @@
 import config from '../config.js';
-import modules from './modules.js?v=20261007-1';
+import modules from './modules.js?v=20261010-share-rebuild';
 import { validateConfig } from '../core/config.js';
 import { createFirebaseAdapter } from '../core/firebase.js';
 import { createTransport } from '../core/api.js';

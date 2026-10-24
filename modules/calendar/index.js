@@ -475,14 +475,26 @@ export default {
       q('#calendarDialogTitle').textContent =
         event ? 'Edit event' : 'Add event';
 
+      const newEventDate = new Date();
+      const defaultStart = new Date(newEventDate);
+      const defaultEnd = new Date(newEventDate);
+      defaultStart.setHours(18, 0, 0, 0);
+      defaultEnd.setHours(20, 0, 0, 0);
+
       q('#calendarEventId').value = event?.id || '';
       q('#calendarTitle').value = event?.title || '';
       q('#calendarType').value = event?.type || 'Meeting';
       q('#calendarFeatured').checked = event?.featured === true;
       q('#calendarHoverText').value = event?.hoverText || '';
-      q('#calendarStart').value = toLocal(event?.start);
-      q('#calendarEnd').value = toLocal(event?.end);
-      q('#calendarLocation').value = event?.location || '';
+      q('#calendarStart').value = event
+        ? toLocal(event.start)
+        : toLocal(defaultStart);
+      q('#calendarEnd').value = event
+        ? toLocal(event.end)
+        : toLocal(defaultEnd);
+      q('#calendarLocation').value = event
+        ? event.location || ''
+        : 'Tallman room';
       q('#calendarDescription').value = event?.description || '';
 
       imageEditor.open(event);

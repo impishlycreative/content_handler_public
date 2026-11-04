@@ -1,5 +1,5 @@
-import { parseContestImportText, CONTEST_IMPORT_SCHEMA_URL } from './contest-import.js?v=20261104-1';
-import { buildContestResearchPrompt } from './contest-prompt.js?v=20261104-1';
+import { parseContestImportText, CONTEST_IMPORT_SCHEMA_URL } from './contest-import.js?v=20261104-fenced-json';
+import { buildContestResearchPrompt } from './contest-prompt.js?v=20261104-fenced-json';
 
 // Structured writing-contest fields for the existing Calendar Manager editor.
 // Entries remain ordinary Google Calendar events with KCW_METADATA.type = "Contest".
@@ -36,7 +36,7 @@ export function addContestEditor(container) {
         <button id="contestCopyPrompt" type="button" class="secondary" disabled title="Copies the AI research instructions and the entire KCW JSON reference to the clipboard">Prompt</button>
         <button id="contestPasteClipboard" type="button" class="secondary" title="Reads a JSON result from the clipboard, validates it, then fills this unsaved contest form">Copy from clipboard</button>
       </div>
-      <p class="help">For Prompt, enter the official contest URL below first, or paste the URL into the AI conversation after the copied prompt. The AI returns JSON, which you can copy and import here.</p>
+      <p class="help">For Prompt, enter the official contest URL below first, or paste the URL into the AI conversation after the copied prompt. The AI returns one JSON code block. Use the AI's Copy code control, then click Copy from clipboard to fill this draft. The importer also accepts the complete fenced code block.</p>
       <p id="contestClipboardStatus" class="calendar-contest-clipboard-status" role="status" aria-live="polite" hidden></p>
     </div>
     <p class="help">Required for publication: contest name (Title above), eligibility, closing date, description, and official link. Other details may be left blank.</p>

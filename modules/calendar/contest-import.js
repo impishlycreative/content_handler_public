@@ -111,10 +111,30 @@ function checkResearch(value) {
   return { notes, sources: verifiedSources, unverifiedFields, generatedAt };
 }
 
+// Accept raw JSON (Copy code) or exactly one complete ```json fenced block.
+// Do not strip arbitrary prose or sanitize malformed values: the complete JSON
+// must parse and pass the same strict field and URL validation either way.
+function unwrapContestJsonText(text) {
+  if (typeof text !== 'string') {
+    throw new Error('Contest import requires text containing a single JSON object.');
+  }
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('```')) return trimmed;
+  const fenced = trimmed.match(/^```json[ \t]*\r?\n([\s\S]*?)\r?\n```[ \t]*$/i);
+  if (!fenced) {
+    throw new Error('Paste raw JSON or exactly one complete ```json code block, without any other text.');
+  }
+  return fenced[1].trim();
+}
+
 export function parseContestImportText(text) {
   let raw;
-  try { raw = JSON.parse(text); }
-  catch { throw new Error('The file is not valid JSON. Have the AI return one JSON object without Markdown fences.'); }
+  try { raw = JSON.parse(unwrapContestJsonText(text)); }
+  catch (error) {
+    if (error?.message?.includes('Paste raw JSON or exactly one complete') ||
+        error?.message?.includes('requires text')) throw error;
+    throw new Error('The input is not valid JSON. Copy raw JSON using Copy code or supply one complete json code block without commentary.');
+  }
   if (!isObject(raw)) throw new Error('Import exactly one contest as a JSON object, not an array.');
   const allowed = new Set(['$schema', 'schemaVersion', 'type', 'status', 'research', ...CONTEST_IMPORT_FIELDS]);
   const unknown = Object.keys(raw).filter(key => !allowed.has(key));

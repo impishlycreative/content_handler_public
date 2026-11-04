@@ -365,3 +365,39 @@
 .calendar-contest-import-review ul { padding-left: 1.25rem; }
 .calendar-contest-import-review li { margin: 5px 0; }
 .calendar-contest-import-review a { overflow-wrap: anywhere; }
+
+/* Contest editor: copy complete AI prompt and paste a validated JSON reply. */
+.calendar-contest-ai-tools {
+  margin: 10px 0 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--line, #cbd4c8);
+  border-radius: 10px;
+  background: #f5f8f4;
+}
+.calendar-contest-ai-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.calendar-contest-ai-actions button {
+  min-height: 40px;
+}
+.calendar-contest-ai-tools .help {
+  margin: 10px 0 0;
+}
+.calendar-contest-clipboard-status {
+  margin: 12px 0 0;
+  padding: 11px 12px;
+  border-radius: 7px;
+  background: #e4f1e7;
+  color: #214b31;
+  font-size: .9rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.calendar-contest-clipboard-status.is-error {
+  background: #fff0ed;
+  color: #84271c;
+}
+.calendar-contest-clipboard-status[hidden] { display: none; }

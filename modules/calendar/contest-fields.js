@@ -1,4 +1,5 @@
 import { parseContestImportText, CONTEST_IMPORT_SCHEMA_URL } from './contest-import.js?v=20261104-1';
+import { buildContestResearchPrompt } from './contest-prompt.js?v=20261104-1';
 
 // Structured writing-contest fields for the existing Calendar Manager editor.
 // Entries remain ordinary Google Calendar events with KCW_METADATA.type = "Contest".
@@ -30,6 +31,14 @@ export function addContestEditor(container) {
   fields.hidden = true;
   fields.innerHTML = `
     <legend>Contest details</legend>
+    <div class="calendar-contest-ai-tools">
+      <div class="calendar-contest-ai-actions">
+        <button id="contestCopyPrompt" type="button" class="secondary" disabled title="Copies the AI research instructions and the entire KCW JSON reference to the clipboard">Prompt</button>
+        <button id="contestPasteClipboard" type="button" class="secondary" title="Reads a JSON result from the clipboard, validates it, then fills this unsaved contest form">Copy from clipboard</button>
+      </div>
+      <p class="help">For Prompt, enter the official contest URL below first, or paste the URL into the AI conversation after the copied prompt. The AI returns JSON, which you can copy and import here.</p>
+      <p id="contestClipboardStatus" class="calendar-contest-clipboard-status" role="status" aria-live="polite" hidden></p>
+    </div>
     <p class="help">Required for publication: contest name (Title above), eligibility, closing date, description, and official link. Other details may be left blank.</p>
     <h3>Basic information</h3>
     <div class="calendar-grid2">
@@ -112,6 +121,112 @@ export function addContestEditor(container) {
   const previousHidden = nativeLabels.map(el => el?.hidden || false);
   const title = container.querySelector('#calendarDialogTitle');
   const globalStatus = container.querySelector('#calendarStatus');
+  const promptButton = fields.querySelector('#contestCopyPrompt');
+  const clipboardButton = fields.querySelector('#contestPasteClipboard');
+  const clipboardStatus = fields.querySelector('#contestClipboardStatus');
+  const eventId = container.querySelector('#calendarEventId');
+  const titleInput = container.querySelector('#calendarTitle');
+  const descriptionInput = container.querySelector('#calendarDescription');
+  let promptSchema = null;
+  let schemaError = '';
+  const schemaController = new AbortController();
+
+  function showClipboardStatus(message, isError = false) {
+    clipboardStatus.textContent = message;
+    clipboardStatus.className = 'calendar-contest-clipboard-status' + (isError ? ' is-error' : '');
+    clipboardStatus.hidden = false;
+  }
+
+  async function preloadPromptSchema() {
+    try {
+      const response = await fetch(CONTEST_IMPORT_SCHEMA_URL, {
+        signal: schemaController.signal, credentials: 'same-origin'
+      });
+      if (!response.ok) throw new Error('Schema request returned HTTP ' + response.status + '.');
+      const schema = await response.json();
+      buildContestResearchPrompt(schema);
+      if (schemaController.signal.aborted) return;
+      promptSchema = schema;
+      promptButton.disabled = false;
+    } catch (error) {
+      if (!schemaController.signal.aborted) {
+        schemaError = 'The AI JSON reference could not be loaded. Refresh the page before using Prompt.';
+        showClipboardStatus(schemaError, true);
+      }
+    }
+  }
+
+  async function copyResearchPrompt() {
+    if (type.value !== 'Contest' || !dialog.open) return;
+    if (!promptSchema) {
+      showClipboardStatus('The JSON reference is not ready yet. Please retry when Prompt is enabled.', true);
+      return;
+    }
+    try {
+      const prompt = buildContestResearchPrompt(promptSchema, inputs.contestUrl.value.trim());
+      if (!navigator.clipboard?.writeText) {
+        throw new Error('This browser does not support clipboard writing in this context.');
+      }
+      await navigator.clipboard.writeText(prompt);
+      showClipboardStatus('AI research prompt and complete JSON reference copied. Paste into your AI chat and provide the contest URL if it was not already included.');
+    } catch (error) {
+      showClipboardStatus('Unable to copy the prompt: ' + (error?.message || 'Clipboard access denied.') + ' Check browser clipboard permissions.', true);
+    }
+  }
+
+  async function pasteContestFromClipboard() {
+    if (type.value !== 'Contest' || !dialog.open) return;
+    if (eventId.value) {
+      showClipboardStatus('Clipboard import is for adding a new contest. Open + Add contest first to avoid overwriting an existing entry.', true);
+      return;
+    }
+
+    let parsedImport;
+    let preservedUrl = '';
+    try {
+      if (!navigator.clipboard?.readText) {
+        throw new Error('This browser does not support reading the clipboard here.');
+      }
+      const text = await navigator.clipboard.readText();
+      if (!text.trim()) throw new Error('The clipboard is empty.');
+      if (text.length > 131072) throw new Error('Clipboard JSON exceeds the 128 KB limit.');
+
+      // Finish ALL parsing and validation before changing a single form input.
+      parsedImport = parseContestImportText(text);
+      if (!titleInput || !descriptionInput) throw new Error('The contest form is unavailable.');
+
+      preservedUrl = parsedImport.fields.contestUrl ? '' : inputs.contestUrl.value.trim();
+      if (preservedUrl) {
+        let parsedUrl;
+        try { parsedUrl = new URL(preservedUrl); }
+        catch { throw new Error('The contest URL already entered is invalid; correct or clear it before importing.'); }
+        if (parsedUrl.protocol !== 'https:' || !parsedUrl.hostname ||
+            parsedUrl.username || parsedUrl.password) {
+          throw new Error('The contest URL already entered must be a valid HTTPS address.');
+        }
+      }
+    } catch (error) {
+      // Read/parse/validation failure: return immediately; form inputs are untouched.
+      showClipboardStatus('Clipboard import stopped: ' + (error?.message || 'Invalid JSON.') + ' No form fields were changed.', true);
+      return;
+    }
+
+    const { fields: importedFields, research, warnings } = parsedImport;
+    const values = {
+      ...importedFields,
+      contestUrl: importedFields.contestUrl || preservedUrl
+    };
+    populate(values);
+    titleInput.value = values.title;
+    descriptionInput.value = values.description;
+    showImportReview(research, warnings);
+    showClipboardStatus('JSON validated and all supported contest fields populated. Nothing has been saved or published. Review the data before saving.');
+  }
+
+  promptButton.addEventListener('click', copyResearchPrompt);
+  clipboardButton.addEventListener('click', pasteContestFromClipboard);
+  void preloadPromptSchema();
+
   const importReview = document.createElement('section');
   importReview.id = 'contestImportReview';
   importReview.className = 'calendar-contest-import-review';
@@ -195,6 +310,9 @@ export function addContestEditor(container) {
   function populate(event) {
     for (const key of FIELD_KEYS) inputs[key].value = event?.[key] || '';
     clearImportReview();
+    clipboardStatus.hidden = true;
+    clipboardStatus.textContent = '';
+    if (schemaError) showClipboardStatus(schemaError, true);
     syncVisibility();
   }
 
@@ -322,6 +440,9 @@ export function addContestEditor(container) {
       addContest.removeEventListener('click', clickAdd);
       importButton.removeEventListener('click', openJsonPicker);
       fileInput.removeEventListener('change', importJsonFile);
+      promptButton.removeEventListener('click', copyResearchPrompt);
+      clipboardButton.removeEventListener('click', pasteContestFromClipboard);
+      schemaController.abort();
       addContest.remove();
       importButton.remove();
       schemaLink.remove();

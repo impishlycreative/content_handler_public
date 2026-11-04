@@ -1,0 +1,268 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://content.kemptvillecreativewriters.com/schemas/contest-import.schema.json",
+  "title": "KCW Writing Contest: AI Research → Calendar Manager JSON Import (v1)",
+  "description": "Exactly one contest per JSON file, using the flat keys of the KCW Content Handler contest form. Fill every field supported by trustworthy evidence, preferring the official organizer's rules. Do not guess; use empty strings for unknown optional values. Keep status Draft: importing never publishes. Research annotations are for human review, not part of the saved contest.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "type",
+    "status",
+    "title"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "https://content.kemptvillecreativewriters.com/schemas/contest-import.schema.json",
+      "description": "Optional schema URI for this contest data file."
+    },
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Exact import format version."
+    },
+    "type": {
+      "type": "string",
+      "const": "Contest",
+      "description": "Must be Contest to route to the contest editor."
+    },
+    "status": {
+      "type": "string",
+      "const": "Draft",
+      "description": "Always Draft; a KCW editor must review and save or publish manually."
+    },
+    "title": {
+      "type": "string",
+      "description": "Official contest name. Use the exact organizer-provided title; do not invent or embellish.",
+      "maxLength": 160,
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "description": "Clear, neutral two-to-five-sentence summary. Explain what to submit and the opportunity, using official sources. Do not copy long passages.",
+      "maxLength": 5000
+    },
+    "contestOrganizer": {
+      "type": "string",
+      "description": "Official organizing body or publisher, as stated in the rules.",
+      "maxLength": 300
+    },
+    "contestEligibility": {
+      "type": "string",
+      "description": "Who may enter: residency/citizenship, ages, publication history, membership, exclusions, and other mandatory conditions. Do not guess.",
+      "maxLength": 1500
+    },
+    "contestRegion": {
+      "type": "string",
+      "description": "Geographic scope, such as Canada, Ontario, worldwide, or a named country. This is not a physical venue.",
+      "maxLength": 300
+    },
+    "contestOpenDate": {
+      "type": "string",
+      "description": "Opening date for submissions YYYY-MM-DD. Leave blank unless explicitly stated.",
+      "pattern": "^$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "contestDeadline": {
+      "type": "string",
+      "description": "FINAL submission cutoff date YYYY-MM-DD. Verify the applicable year; do not confuse with registration, early-bird, or finalists dates.",
+      "pattern": "^$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "contestDeadlineTime": {
+      "type": "string",
+      "description": "Exact final deadline in 24-hour HH:MM, if stated. Leave blank if unspecified.",
+      "pattern": "^$|^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+    },
+    "contestDeadlineTimezone": {
+      "type": "string",
+      "description": "IANA timezone such as America/Toronto, Europe/London, or UTC. Do not infer from your own location.",
+      "maxLength": 100
+    },
+    "contestAnnouncementDate": {
+      "type": "string",
+      "description": "Expected winner/results notification date YYYY-MM-DD, if the organizer specifies one.",
+      "pattern": "^$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "contestUrl": {
+      "type": "string",
+      "description": "Official HTTPS contest details or submission URL. Prefer organizer's page, not an aggregator.",
+      "maxLength": 2000,
+      "pattern": "^$|^https://[^\\s]+$"
+    },
+    "contestTermsUrl": {
+      "type": "string",
+      "description": "Direct HTTPS page or PDF containing full official rules/terms. Can equal contestUrl if the rules are there.",
+      "maxLength": 2000,
+      "pattern": "^$|^https://[^\\s]+$"
+    },
+    "contestEntryFee": {
+      "type": "string",
+      "description": "Describe fee precisely, including currency and relevant category/early-bird variation. Use 'Free' only when verified; blank if unknown.",
+      "maxLength": 150
+    },
+    "contestPrize": {
+      "type": "string",
+      "description": "Prizes and award amounts, with currency, number of winners and publication benefits where available.",
+      "maxLength": 500
+    },
+    "contestForm": {
+      "type": "string",
+      "description": "Writing form(s), comma-separated using familiar categories: Poetry, Flash Fiction, Short Stories, Novels & Novellas, Creative Nonfiction, Essays & Articles, Scriptwriting & Drama, Translation, Experimental Writing, Open / Multiple Categories. Only those actually accepted.",
+      "maxLength": 300
+    },
+    "contestGenres": {
+      "type": "string",
+      "description": "Allowed genres/themes, comma-separated (e.g. Science Fiction, Horror). Leave blank if unspecified; do not assume all genres permitted.",
+      "maxLength": 600
+    },
+    "contestLengthLimit": {
+      "type": "string",
+      "description": "Exact word/line/page/character limits and any excerpt/synopsis requirements; retain units and per-entry variations.",
+      "maxLength": 400
+    },
+    "contestPublicationPolicy": {
+      "type": "string",
+      "description": "Whether previously published work is accepted, based strictly on official rules.",
+      "enum": [
+        "",
+        "Unpublished only",
+        "Previously published accepted",
+        "See official rules"
+      ]
+    },
+    "contestAiPolicy": {
+      "type": "string",
+      "description": "AI writing-assistance policy based strictly on explicit rules, not assumptions.",
+      "enum": [
+        "",
+        "Prohibited",
+        "Restricted",
+        "Allowed",
+        "See official rules"
+      ]
+    },
+    "contestRestrictions": {
+      "type": "string",
+      "description": "Other limitations and noteworthy conditions: simultaneous submissions, anonymity, manuscript formatting, number of entries, rights/licensing, eligibility exceptions, refunds, etc. Distinguish facts from warnings.",
+      "maxLength": 2000
+    },
+    "contestVerifiedAt": {
+      "type": "string",
+      "description": "Date YYYY-MM-DD when the specific details were actually checked against an official source. Leave blank if not checked.",
+      "pattern": "^$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "contestLanguage": {
+      "type": "string",
+      "description": "Accepted language(s) for submissions; blank if unspecified.",
+      "maxLength": 200
+    },
+    "research": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "AI research provenance shown during import for review. It is not saved to Google Calendar.",
+      "properties": {
+        "generatedAt": {
+          "type": "string",
+          "pattern": "^$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "description": "When research was performed, not when the event was created."
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 3000,
+          "description": "Concise ambiguities, alternate deadlines, verification caveats, discrepancies, and what a human should check."
+        },
+        "unverifiedFields": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 25,
+          "items": {
+            "enum": [
+              "title",
+              "description",
+              "contestOrganizer",
+              "contestEligibility",
+              "contestRegion",
+              "contestOpenDate",
+              "contestDeadline",
+              "contestDeadlineTime",
+              "contestDeadlineTimezone",
+              "contestAnnouncementDate",
+              "contestUrl",
+              "contestTermsUrl",
+              "contestEntryFee",
+              "contestPrize",
+              "contestForm",
+              "contestGenres",
+              "contestLengthLimit",
+              "contestPublicationPolicy",
+              "contestAiPolicy",
+              "contestRestrictions",
+              "contestVerifiedAt",
+              "contestLanguage"
+            ]
+          },
+          "description": "Field names needing human verification. The associated values should be blank when unverified."
+        },
+        "sources": {
+          "type": "array",
+          "maxItems": 30,
+          "description": "Direct evidence, preferably official contest pages or rules. Supporting sources do not make unverified claims true.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "url"
+            ],
+            "properties": {
+              "url": {
+                "type": "string",
+                "pattern": "^https://[^\\s]+$",
+                "maxLength": 2000
+              },
+              "title": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "accessedAt": {
+                "type": "string",
+                "pattern": "^$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+              },
+              "supportsFields": {
+                "type": "array",
+                "uniqueItems": true,
+                "maxItems": 25,
+                "items": {
+                  "enum": [
+                    "title",
+                    "description",
+                    "contestOrganizer",
+                    "contestEligibility",
+                    "contestRegion",
+                    "contestOpenDate",
+                    "contestDeadline",
+                    "contestDeadlineTime",
+                    "contestDeadlineTimezone",
+                    "contestAnnouncementDate",
+                    "contestUrl",
+                    "contestTermsUrl",
+                    "contestEntryFee",
+                    "contestPrize",
+                    "contestForm",
+                    "contestGenres",
+                    "contestLengthLimit",
+                    "contestPublicationPolicy",
+                    "contestAiPolicy",
+                    "contestRestrictions",
+                    "contestVerifiedAt",
+                    "contestLanguage"
+                  ]
+                },
+                "description": "Which form fields this source directly supports."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

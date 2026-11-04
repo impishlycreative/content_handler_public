@@ -333,3 +333,35 @@
 .calendar-contest-fields label textarea { resize: vertical; }
 .calendar-contest-verified { align-self: end; padding-bottom: 4px; }
 .calendar-dialog label[hidden] { display: none !important; }
+
+/* AI contest import: toolbar actions and source-review notes. */
+.calendar-toolbar { flex-wrap: wrap; }
+.calendar-toolbar > button,
+.calendar-toolbar > .calendar-contest-schema-link { flex-shrink: 0; }
+.calendar-contest-schema-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: .7rem 1rem;
+  min-height: 40px;
+  border: 1px solid var(--line, #cbd4c8);
+  border-radius: 8px;
+  background: white;
+  color: var(--ink, #172a1c);
+  font: inherit;
+  font-weight: 650;
+  text-decoration: none;
+}
+.calendar-contest-schema-link:hover { background: #f1f5f1; }
+.calendar-contest-import-review {
+  border-top: 1px solid var(--line, #cbd4c8);
+  margin-top: 18px;
+  padding-top: 15px;
+  overflow-wrap: anywhere;
+}
+.calendar-contest-import-review[hidden] { display: none; }
+.calendar-contest-import-review h3 { margin-top: 0; }
+.calendar-contest-import-review ul { padding-left: 1.25rem; }
+.calendar-contest-import-review li { margin: 5px 0; }
+.calendar-contest-import-review a { overflow-wrap: anywhere; }

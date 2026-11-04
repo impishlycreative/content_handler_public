@@ -1,5 +1,5 @@
 import config from '../config.js';
-import modules from './modules.js?v=20261104-contests';
+import modules from './modules.js?v=20261104-json-import';
 import { validateConfig } from '../core/config.js';
 import { createFirebaseAdapter } from '../core/firebase.js';
 import { createTransport } from '../core/api.js';

@@ -1,5 +1,5 @@
 import calendar from './browser.js?v=20261007-2';
-import { addContestEditor } from './contest-fields.js?v=20261104-1';
+import { addContestEditor } from './contest-fields.js?v=20261104-json-import';
 
 const GUEST_SPEAKER_TYPE = 'Guest Speaker';
 

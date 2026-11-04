@@ -1,3 +1,5 @@
+import { parseContestImportText, CONTEST_IMPORT_SCHEMA_URL } from './contest-import.js?v=20261104-1';
+
 // Structured writing-contest fields for the existing Calendar Manager editor.
 // Entries remain ordinary Google Calendar events with KCW_METADATA.type = "Contest".
 const FIELD_KEYS = [
@@ -109,6 +111,70 @@ export function addContestEditor(container) {
   const nativeLabels = [start, end, location, featured, hover].map(input => input.closest('label'));
   const previousHidden = nativeLabels.map(el => el?.hidden || false);
   const title = container.querySelector('#calendarDialogTitle');
+  const globalStatus = container.querySelector('#calendarStatus');
+  const importReview = document.createElement('section');
+  importReview.id = 'contestImportReview';
+  importReview.className = 'calendar-contest-import-review';
+  importReview.hidden = true;
+  importReview.setAttribute('aria-live', 'polite');
+  fields.append(importReview);
+
+  function clearImportReview() {
+    importReview.hidden = true;
+    importReview.replaceChildren();
+  }
+  function reviewText(parent, tag, value) {
+    const node = document.createElement(tag);
+    node.textContent = value;
+    parent.append(node);
+    return node;
+  }
+  function showImportReview(research, warnings) {
+    importReview.replaceChildren();
+    importReview.hidden = false;
+    reviewText(importReview, 'h3', 'Imported research — review before saving');
+    reviewText(importReview, 'p', 'This JSON was used to fill a new, unsaved draft. Check dates, restrictions, and links against official sources before publishing.');
+    if (research.generatedAt) reviewText(importReview, 'p', 'Research date: ' + research.generatedAt);
+    if (warnings.length) {
+      reviewText(importReview, 'strong', 'Items to check');
+      const list = document.createElement('ul');
+      warnings.forEach(warning => reviewText(list, 'li', warning));
+      importReview.append(list);
+    }
+    if (research.notes) {
+      reviewText(importReview, 'strong', 'Research notes');
+      reviewText(importReview, 'p', research.notes);
+    }
+    if (research.sources.length) {
+      reviewText(importReview, 'strong', 'Research sources (not automatically saved)');
+      const list = document.createElement('ul');
+      for (const source of research.sources) {
+        const li = document.createElement('li');
+        const link = document.createElement('a');
+        link.href = source.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = source.title || source.url;
+        li.append(link);
+        const details = [
+          source.accessedAt ? 'checked ' + source.accessedAt : '',
+          source.supportsFields.length ? 'supports: ' + source.supportsFields.join(', ') : ''
+        ].filter(Boolean);
+        if (details.length) li.append(document.createTextNode(' (' + details.join('; ') + ')'));
+        list.append(li);
+      }
+      importReview.append(list);
+    }
+    if (research.unverifiedFields.length) {
+      reviewText(importReview, 'p', 'Unverified fields: ' + research.unverifiedFields.join(', '));
+    }
+  }
+  function showImportMessage(message, isError = false) {
+    if (!globalStatus) return;
+    globalStatus.textContent = message;
+    globalStatus.className = isError ? 'calendar-notice calendar-error' : 'calendar-notice calendar-success';
+    globalStatus.hidden = false;
+  }
 
   function syncVisibility() {
     const isContest = type.value === 'Contest';
@@ -128,6 +194,7 @@ export function addContestEditor(container) {
 
   function populate(event) {
     for (const key of FIELD_KEYS) inputs[key].value = event?.[key] || '';
+    clearImportReview();
     syncVisibility();
   }
 
@@ -177,6 +244,29 @@ export function addContestEditor(container) {
   const toolbar = container.querySelector('.calendar-toolbar');
   toolbar?.insertBefore(addContest, addEvent);
 
+  const schemaLink = document.createElement('a');
+  schemaLink.href = CONTEST_IMPORT_SCHEMA_URL;
+  schemaLink.download = 'contest-import.schema.json';
+  schemaLink.className = 'secondary calendar-contest-schema-link';
+  schemaLink.textContent = 'AI import schema';
+  schemaLink.title = 'Download the JSON Schema to give an AI when researching a writing contest.';
+  toolbar?.insertBefore(schemaLink, addContest);
+
+  const importButton = document.createElement('button');
+  importButton.id = 'calendarImportContest';
+  importButton.type = 'button';
+  importButton.className = 'secondary';
+  importButton.textContent = 'Import contest JSON';
+  importButton.title = 'Fill a new, unsaved contest draft from a JSON file produced using the KCW schema.';
+  toolbar?.insertBefore(importButton, addContest);
+
+  const fileInput = document.createElement('input');
+  fileInput.id = 'calendarContestJsonFile';
+  fileInput.type = 'file';
+  fileInput.accept = '.json,application/json';
+  fileInput.hidden = true;
+  container.append(fileInput);
+
   const clickAdd = () => {
     addEvent.click();
     type.value = 'Contest';
@@ -184,6 +274,38 @@ export function addContestEditor(container) {
     populate(null);
   };
   addContest.addEventListener('click', clickAdd);
+
+  const openJsonPicker = () => fileInput.click();
+  const importJsonFile = async () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    try {
+      if (file.size > 131072) {
+        throw new Error('The contest JSON file must be 128 KB or smaller.');
+      }
+      const text = await file.text();
+      const { fields: importedFields, research, warnings } = parseContestImportText(text);
+
+      // Open the canonical editor as a NEW draft. Let the existing dialog
+      // observer finish clearing its form before applying imported values.
+      addEvent.click();
+      await Promise.resolve();
+      type.value = 'Contest';
+      type.dispatchEvent(new Event('change'));
+      populate(importedFields);
+      container.querySelector('#calendarTitle').value = importedFields.title;
+      container.querySelector('#calendarDescription').value = importedFields.description;
+      showImportReview(research, warnings);
+      showImportMessage('Contest JSON loaded into a new, unsaved draft. Review the form and select Save as Draft or Publish when ready.');
+    } catch (error) {
+      showImportMessage('Contest import failed: ' + (error?.message || 'Invalid file.'), true);
+    } finally {
+      fileInput.value = '';
+    }
+  };
+  importButton.addEventListener('click', openJsonPicker);
+  fileInput.addEventListener('change', importJsonFile);
+
   const verifyButton = fields.querySelector('#contestVerifyToday');
   verifyButton.addEventListener('click', markVerified);
   type.addEventListener('change', syncVisibility);
@@ -198,7 +320,12 @@ export function addContestEditor(container) {
       type.removeEventListener('change', syncVisibility);
       verifyButton.removeEventListener('click', markVerified);
       addContest.removeEventListener('click', clickAdd);
+      importButton.removeEventListener('click', openJsonPicker);
+      fileInput.removeEventListener('change', importJsonFile);
       addContest.remove();
+      importButton.remove();
+      schemaLink.remove();
+      fileInput.remove();
       location.required = oldRequired;
       nativeLabels.forEach((el, i) => { if (el) el.hidden = previousHidden[i]; });
       fields.remove();

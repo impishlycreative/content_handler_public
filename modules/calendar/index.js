@@ -70,14 +70,17 @@ function previewNode(event, assetBaseUrl) {
   const date = document.createElement('div');
   date.className = 'calendar-preview-date';
 
+  const contestPreviewDate = event.type === 'Contest' && event.contestDeadline
+    ? event.contestDeadline + 'T12:00:00Z'
+    : event.start;
   const month = document.createElement('span');
-  month.textContent = previewDate(event.start, { month: 'short' }, 'TBD');
+  month.textContent = previewDate(contestPreviewDate, { month: 'short' }, 'TBD');
 
   const day = document.createElement('strong');
-  day.textContent = previewDate(event.start, { day: '2-digit' }, '—');
+  day.textContent = previewDate(contestPreviewDate, { day: '2-digit' }, '—');
 
   const year = document.createElement('small');
-  year.textContent = previewDate(event.start, { year: 'numeric' }, '');
+  year.textContent = previewDate(contestPreviewDate, { year: 'numeric' }, '');
 
   date.append(month, day, year);
 
@@ -114,6 +117,34 @@ function previewNode(event, assetBaseUrl) {
 
   const details = document.createElement('div');
   details.className = 'calendar-preview-details';
+
+  if (event.type === 'Contest') {
+    const addDetail = (label, value) => {
+      if (!value) return;
+      const element = document.createElement('div');
+      const heading = document.createElement('strong');
+      heading.textContent = label;
+      element.append(heading, document.createTextNode(value));
+      details.append(element);
+    };
+    addDetail('Eligibility', event.contestEligibility || 'Not yet specified');
+    addDetail('Submissions open', event.contestOpenDate || 'Not specified');
+    addDetail('Deadline', (event.contestDeadline || 'Not yet specified') +
+      (event.contestDeadlineTime
+        ? ' at ' + event.contestDeadlineTime + ' ' + (event.contestDeadlineTimezone || 'America/Toronto')
+        : ''));
+    addDetail('Organizer', event.contestOrganizer);
+    addDetail('Entry fee', event.contestEntryFee);
+    addDetail('Prize', event.contestPrize);
+    addDetail('Writing form / genres', [event.contestForm, event.contestGenres].filter(Boolean).join(' · '));
+    addDetail('Length limit', event.contestLengthLimit);
+    addDetail('Restrictions', event.contestRestrictions);
+    addDetail('Official URL', event.contestUrl);
+    addDetail('Terms', event.contestTermsUrl);
+    body.append(details);
+    article.append(date, body);
+    return article;
+  }
 
   const when = document.createElement('div');
   const whenLabel = document.createElement('strong');
@@ -347,6 +378,18 @@ export default {
     };
 
     function openPreview(event) {
+      if (event.type === 'Contest' && dialog.open) {
+        const fields = [
+          'contestOrganizer', 'contestEligibility', 'contestOpenDate', 'contestDeadline',
+          'contestDeadlineTime', 'contestDeadlineTimezone', 'contestEntryFee', 'contestPrize',
+          'contestForm', 'contestGenres', 'contestLengthLimit', 'contestRestrictions',
+          'contestUrl', 'contestTermsUrl'
+        ];
+        const unsaved = Object.fromEntries(fields.map(key => [
+          key, q('#' + key)?.value || ''
+        ]));
+        event = { ...event, ...unsaved };
+      }
       q('#calendarPreviewContent').replaceChildren(previewNode(event, assetBaseUrl));
       previewDialog.showModal();
     }

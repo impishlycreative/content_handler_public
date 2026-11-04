@@ -1,4 +1,5 @@
 import calendar from './browser.js?v=20261007-2';
+import { addContestEditor } from './contest-fields.js?v=20261104-1';
 
 const GUEST_SPEAKER_TYPE = 'Guest Speaker';
 
@@ -171,10 +172,16 @@ export default {
 
   async mount(context) {
     let editor = null;
+    let contestEditor = null;
     let knownEvents = new Map();
 
     const serviceApi = async (moduleId, action, data = {}) => {
       let requestData = data;
+
+      if (moduleId === 'calendar' && action === 'listEvents') {
+        // Contests may open many months before their deadline.
+        requestData = { ...requestData, daysAhead: 366 };
+      }
 
       if (
         moduleId === 'calendar' &&
@@ -183,7 +190,8 @@ export default {
       ) {
         requestData = {
           ...data,
-          ...editor.payload()
+          ...editor.payload(),
+          ...(contestEditor?.payload() || {})
         };
       }
 
@@ -204,6 +212,7 @@ export default {
     }
 
     editor = addGuestSpeakerEditor(context.container);
+    contestEditor = addContestEditor(context.container);
     const removeShareRebuildButton = addShareRebuildButton({
       ...context,
       serviceApi
@@ -215,9 +224,12 @@ export default {
       if (!id) {
         editor.clear();
         editor.populate(null);
+        contestEditor.populate(null);
         return;
       }
-      editor.populate(knownEvents.get(String(id)) || null);
+      const event = knownEvents.get(String(id)) || null;
+      editor.populate(event);
+      contestEditor.populate(event);
     };
 
     const dialogObserver = new MutationObserver(syncFromDialog);
@@ -232,6 +244,7 @@ export default {
       dialogObserver.disconnect();
       removeShareRebuildButton?.();
       editor?.destroy();
+      contestEditor?.destroy();
       cleanup?.();
     };
   }

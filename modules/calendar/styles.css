@@ -314,3 +314,22 @@
     padding: 15px;
   }
 }
+
+/* Contest-specific fields within the canonical calendar editor. */
+.calendar-contest-fields {
+  border: 1px solid var(--line, #cbd4c8);
+  border-radius: 8px;
+  padding: 18px;
+  margin: 10px 0;
+  min-width: 0;
+}
+.calendar-contest-fields[hidden] { display: none; }
+.calendar-contest-fields legend { font-weight: 700; padding: 0 8px; }
+.calendar-contest-fields h3 { font-size: 1rem; margin: 18px 0 8px; }
+.calendar-contest-fields > label { display: grid; gap: 5px; margin: 12px 0; }
+.calendar-contest-fields label input,
+.calendar-contest-fields label select,
+.calendar-contest-fields label textarea { width: 100%; min-width: 0; }
+.calendar-contest-fields label textarea { resize: vertical; }
+.calendar-contest-verified { align-self: end; padding-bottom: 4px; }
+.calendar-dialog label[hidden] { display: none !important; }

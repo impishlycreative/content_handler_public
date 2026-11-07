@@ -966,7 +966,9 @@ export default {
         await openDraft(result.newsletter.id);
         ui.status('HTML stored privately and reopened for preview.');
       } catch (error) {
-        ui.status(error?.message || 'HTML import failed.', 'error');
+        ui.status(error?.code === 'CANCELLED'
+          ? 'The import timed out or was cancelled. It may still have been saved. Check Saved drafts before importing again to avoid duplicates.'
+          : (error?.message || 'HTML import failed.'), 'error');
       } finally {
         importButton.disabled = false;
       }

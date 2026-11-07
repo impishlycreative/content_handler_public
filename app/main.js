@@ -1,8 +1,8 @@
 import config from '../config.js';
-import modules from './modules.js?v=20261104-fenced-json';
+import modules from './modules.js?v=20261107-import-timeout';
 import { validateConfig } from '../core/config.js';
 import { createFirebaseAdapter } from '../core/firebase.js';
-import { createTransport } from '../core/api.js';
+import { createTransport } from '../core/api.js?v=20261107-import-timeout';
 import { createSession } from '../core/session.js';
 import { createRegistry } from '../core/modules.js?v=20261003-3';
 import { startShell } from '../core/shell.js';

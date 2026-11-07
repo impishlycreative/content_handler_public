@@ -1,13 +1,20 @@
 export class ApiError extends Error {
   constructor(code, message) { super(message); this.code = code; }
 }
+// A newsletter import writes to Google Drive and Firestore in one Apps Script request.
+// Keep normal calls responsive while allowing this slower, non-idempotent write to finish.
+export function timeoutForAction(config, action) {
+  return action === 'newsletter.importHtml'
+    ? Math.max(config.requestTimeoutMs, 90000)
+    : config.requestTimeoutMs;
+}
 export function createTransport(config, fetcher = fetch) {
   return async (user, action, data = {}, signal, apiUrl = config.apiUrl) => {
     const controller = new AbortController();
     const cancel = () => controller.abort();
     if (signal?.aborted) cancel();
     signal?.addEventListener('abort', cancel, { once: true });
-    const timeout = setTimeout(cancel, config.requestTimeoutMs);
+    const timeout = setTimeout(cancel, timeoutForAction(config, action));
     try {
       const token = await user.getIdToken();
       const response = await fetcher(apiUrl, {

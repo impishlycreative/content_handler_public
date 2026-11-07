@@ -428,7 +428,7 @@ export default {
     'newsletter.admin'
   ],
 
-  async mount({ container, api, ui, signal }) {
+  async mount({ container, api, ui, signal, identity }) {
     ensureEditorStylesheet();
     const { grapesjs, grapesJSMJML } = await loadEditorDependencies();
     if (signal.aborted) throw new DOMException('Module closed.', 'AbortError');
@@ -441,6 +441,11 @@ export default {
     let currentLayout = 'single';
     let drafts = [];
     let dirty = false;
+    let currentSourceType = 'editor';
+    let lastDryRun = null;
+    let currentCampaignId = '';
+    const canSend = (identity?.permissions || []).some(permission =>
+      ['*', 'newsletter.send'].includes(permission));
     const preview = createPreviewDialog();
 
     const call = async (action, data = {}) => {
@@ -458,7 +463,7 @@ export default {
       el('h1', 'Newsletter designer'),
       el(
         'p',
-        'Create and save editable newsletter drafts. Test and production sending remain disabled in this build.',
+        'Prepare, validate, test and send communications. All campaigns start in dry-run mode.',
         'help'
       )
     );
@@ -474,9 +479,39 @@ export default {
     const titleField = textInput('Internal title', 160, 'October weekly newsletter');
     const subjectField = textInput('Email subject', 200, 'This week at Kemptville Creative Writers');
     const previewField = textInput('Preview text', 300, 'A short inbox preview shown by many mail clients');
+    const typeField = el('label', undefined, 'newsletter-field');
+    typeField.append(el('span', 'Communication type', 'newsletter-field-label'));
+    const communicationType = document.createElement('select');
+    for (const [value, label] of [
+      ['monthly', 'Monthly newsletter'],
+      ['weekly', 'Weekly newsletter'],
+      ['guidelines', 'Sharing & Feedback Guidelines update'],
+      ['update', 'General update']
+    ]) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      communicationType.append(option);
+    }
+    typeField.append(communicationType);
+    const defaultSubject = type => {
+      const now = new Date();
+      const month = new Intl.DateTimeFormat('en-CA',
+        { timeZone: 'America/Toronto', month: 'long', year: 'numeric' }).format(now);
+      const date = new Intl.DateTimeFormat('en-CA',
+        { timeZone: 'America/Toronto', month: 'long', day: 'numeric', year: 'numeric' }).format(now);
+      const prefix = 'Kemptville Creative Writers - ';
+      return {
+        monthly: prefix + month + ' Monthly Newsletter',
+        weekly: prefix + 'Weekly Newsletter - ' + date,
+        guidelines: prefix + 'Sharing & Feedback Guidelines Update',
+        update: prefix + 'Important Update'
+      }[type];
+    };
     const saveState = el('span', 'Not saved yet', 'newsletter-save-state');
     details.append(
       titleField.wrapper,
+      typeField,
       subjectField.wrapper,
       previewField.wrapper,
       saveState
@@ -518,18 +553,64 @@ export default {
 
     const note = el(
       'div',
-      'Current Schedule and Featured Item are drag-and-drop blocks with sample data for now. Saved drafts are stored in Firestore. Sending remains disconnected.',
+      'Schedule and Featured Item still contain sample content. Confirm all content and personalized links before sending.',
       'newsletter-prototype-note'
     );
 
     const workspace = el('div', undefined, 'newsletter-persistence-layout');
     const side = el('aside', undefined, 'newsletter-persistence-side');
     const main = el('div', undefined, 'newsletter-persistence-main');
-    side.append(draftsPanel, details, templatePanel, note);
+    const importPanel = el('section', undefined, 'newsletter-details');
+    importPanel.append(el('strong', 'HTML source'));
+    const sourceField = el('label', undefined, 'newsletter-field');
+    sourceField.append(el('span', 'Source', 'newsletter-field-label'));
+    const htmlSource = document.createElement('select');
+    for (const [value, label] of [
+      ['editor', 'Current newsletter editor'],
+      ['upload', 'Upload local HTML file'],
+      ['drive', 'Import HTML using Google Drive file ID']
+    ]) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      htmlSource.append(option);
+    }
+    sourceField.append(htmlSource);
+    importPanel.append(sourceField);
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.html,.htm,text/html';
+    fileInput.setAttribute('aria-label', 'Choose HTML file');
+    const driveInput = document.createElement('input');
+    driveInput.type = 'text';
+    driveInput.placeholder = 'Google Drive HTML file ID';
+    driveInput.setAttribute('aria-label', 'Google Drive HTML file ID');
+    const importButton = button('Import HTML to private storage', 'secondary', () => importHtml());
+    importPanel.append(fileInput, driveInput, importButton);
+    const sendPanel = el('section', undefined, 'newsletter-details newsletter-send-panel');
+    sendPanel.append(el('strong', 'Delivery controls'));
+    sendPanel.append(el('p', 'Default: dry run. No email is sent until you explicitly choose a test or complete two production confirmations.', 'help'));
+    const dryRunButton = button('Dry run — send nothing', 'primary', () => dryRunCurrent());
+    const testButton = button('Send one test email', 'secondary', () => sendTestCurrent());
+    const fullButton = button('Request full-audience send', 'newsletter-danger-button', () => requestFullSend());
+    const statusButton = button('Check send progress', 'secondary', () => checkSendStatus());
+    const historyButton = button('Campaign history', 'secondary', () => loadSendHistory());
+    const sendReport = el('pre', 'No dry run yet.', 'newsletter-send-report');
+    sendReport.setAttribute('aria-live', 'polite');
+    if (!canSend) {
+      testButton.hidden = true;
+      fullButton.hidden = true;
+    }
+    sendPanel.append(dryRunButton, testButton, fullButton, statusButton, historyButton, sendReport);
+    const importedNotice = el('p',
+      'Imported HTML is read-only in the MJML editor. Use Preview email to view it, or import a revised HTML file.',
+      'newsletter-prototype-note');
+    importedNotice.hidden = true;
+    side.append(draftsPanel, details, importPanel, sendPanel, templatePanel, note);
 
     const editorHost = el('div', undefined, 'newsletter-editor-host');
     editorHost.id = `newsletter-editor-${crypto.randomUUID?.() || Date.now()}`;
-    main.append(editorHost);
+    main.append(importedNotice, editorHost);
     workspace.append(side, main);
     container.append(toolbar, workspace);
 
@@ -584,6 +665,7 @@ export default {
     mobileEditorQuery.addEventListener?.('change', refreshEditorChrome);
 
     function markDirty() {
+      lastDryRun = null;
       dirty = true;
       saveState.textContent = currentId ? 'Unsaved changes' : 'New unsaved draft';
       saveState.classList.add('is-dirty');
@@ -596,13 +678,23 @@ export default {
     }
 
     function clearFields() {
+      communicationType.value = 'monthly';
+      communicationType.disabled = false;
+      htmlSource.value = 'editor';
+      currentSourceType = 'editor';
+      editorHost.hidden = false;
+      importedNotice.hidden = true;
+      saveButton.disabled = false;
       titleField.input.value = '';
       subjectField.input.value = '';
       previewField.input.value = '';
+      subjectField.input.value = defaultSubject('monthly');
     }
 
     function newDraft() {
       currentId = '';
+      currentCampaignId = '';
+      lastDryRun = null;
       currentLayout = 'single';
       clearFields();
       editor.setComponents(templateMarkup('single'));
@@ -673,13 +765,29 @@ export default {
         const record = await call('get', { id });
         currentId = record.id;
         currentLayout = record.layout || 'custom';
+        currentSourceType = record.sourceType || 'editor';
+        communicationType.disabled = currentSourceType !== 'editor';
+        communicationType.value = record.communicationType || 'monthly';
+        htmlSource.value = currentSourceType;
+        currentCampaignId = '';
+        lastDryRun = null;
+        editorHost.hidden = currentSourceType !== 'editor';
+        importedNotice.hidden = currentSourceType === 'editor';
+        saveButton.disabled = currentSourceType !== 'editor';
+        importPanel.querySelector('.newsletter-field')?.classList.toggle('is-imported', currentSourceType !== 'editor');
         titleField.input.value = record.title || '';
         subjectField.input.value = record.subject || '';
         previewField.input.value = record.previewText || '';
 
-        editor.setComponents(
-          stripEditorMetadata(record.mjml || templateMarkup('single'))
-        );
+        if (currentSourceType === 'editor') {
+          editor.setComponents(
+            stripEditorMetadata(record.mjml || templateMarkup('single'))
+          );
+        } else {
+          // Never attempt to reconstruct imported HTML as editable MJML.
+          const imported = await call('openAsset', { id });
+          preview.show(imported.html);
+        }
         scheduleEditorChromeRefresh();
 
         markSaved(record.updatedAt);
@@ -728,7 +836,7 @@ export default {
     }
 
     async function saveDraft() {
-      if (!editor || saveButton.disabled) return;
+      if (!editor || saveButton.disabled || currentSourceType !== 'editor') return;
 
       const title = titleField.input.value.trim();
       if (!title) {
@@ -744,6 +852,7 @@ export default {
         const result = await call('save', {
           id: currentId || undefined,
           title,
+          communicationType: communicationType.value,
           subject: subjectField.input.value.trim(),
           previewText: previewField.input.value.trim(),
           layout: currentLayout || 'custom',
@@ -769,8 +878,7 @@ export default {
       }
     }
 
-    function previewEmail() {
-      try {
+    function compileEditorHtml() {
         const mjml = editor.runCommand('mjml-code');
 
         if (!mjml) {
@@ -780,11 +888,7 @@ export default {
         const missing = validateRequiredLinks(mjml);
 
         if (missing.length) {
-          ui.status(
-            'Preview blocked: the required unsubscribe, preferences, and privacy links must be present.',
-            'error'
-          );
-          return;
+          throw new Error('Missing required personalized footer links: ' + missing.join(', '));
         }
 
         const messageMjml = withMessageMetadata(
@@ -801,7 +905,15 @@ export default {
           throw new Error('MJML did not return rendered HTML.');
         }
 
-        preview.show(result.html);
+        return result.html;
+    }
+
+    async function previewEmail() {
+      try {
+        const html = currentSourceType === 'editor'
+          ? compileEditorHtml()
+          : (await call('openAsset', { id: currentId })).html;
+        preview.show(html);
         ui.status('Rendered email HTML generated successfully.');
       } catch (error) {
         ui.status(
@@ -810,6 +922,171 @@ export default {
         );
       }
     }
+
+    const renderReport = result => {
+      sendReport.textContent = JSON.stringify(result, null, 2);
+    };
+
+    const currentPayload = () => {
+      if (!currentId) throw new Error('Save or import the communication before sending.');
+      if (dirty) throw new Error('Save changes before running delivery operations.');
+      const data = {
+        id: currentId,
+        communicationType: communicationType.value,
+        subject: subjectField.input.value.trim()
+      };
+      if (currentSourceType === 'editor') data.html = compileEditorHtml();
+      return data;
+    };
+
+    async function importHtml() {
+      importButton.disabled = true;
+      try {
+        const type = communicationType.value;
+        const base = {
+          sourceType: htmlSource.value,
+          communicationType: type,
+          title: titleField.input.value.trim() || 'Imported ' + type + ' communication',
+          subject: subjectField.input.value.trim() || defaultSubject(type),
+          previewText: previewField.input.value.trim()
+        };
+        if (base.sourceType === 'editor') throw new Error('Choose Upload or Drive as the HTML source.');
+        if (base.sourceType === 'upload') {
+          const file = fileInput.files?.[0];
+          if (!file || !/\.html?$/i.test(file.name) || file.size > 175000) {
+            throw new Error('Choose an HTML file smaller than 175 KB.');
+          }
+          base.filename = file.name;
+          base.html = await file.text();
+        } else {
+          base.driveId = driveInput.value.trim();
+        }
+        const result = await call('importHtml', base);
+        await loadDrafts();
+        await openDraft(result.newsletter.id);
+        ui.status('HTML stored privately and reopened for preview.');
+      } catch (error) {
+        ui.status(error?.message || 'HTML import failed.', 'error');
+      } finally {
+        importButton.disabled = false;
+      }
+    }
+
+    async function dryRunCurrent() {
+      dryRunButton.disabled = true;
+      try {
+        const payload = currentPayload();
+        const report = await call('dryRun', payload);
+        lastDryRun = { report, payload };
+        renderReport(report);
+        ui.status('Dry run completed. No emails were sent.');
+        return lastDryRun;
+      } catch (error) {
+        lastDryRun = null;
+        ui.status(error?.message || 'Dry run failed.', 'error');
+        return null;
+      } finally {
+        dryRunButton.disabled = false;
+      }
+    }
+
+    async function sendTestCurrent() {
+      if (!canSend) return;
+      if (!window.confirm('Send one real email to the server-configured test recipient?')) return;
+      testButton.disabled = true;
+      try {
+        const report = await call('sendTest', currentPayload());
+        renderReport(report);
+        ui.status(report.acceptedCount
+          ? 'Provider accepted the test email (delivery is not guaranteed).'
+          : 'Test email acceptance could not be confirmed.', report.acceptedCount ? undefined : 'error');
+      } catch (error) {
+        ui.status(error?.message || 'Test email failed.', 'error');
+      } finally {
+        testButton.disabled = false;
+      }
+    }
+
+    async function requestFullSend() {
+      if (!canSend) return;
+      fullButton.disabled = true;
+      let prepared = null;
+      let finalSubmitted = false;
+      try {
+        // Always re-run dry run immediately before requesting production delivery.
+        const checked = await dryRunCurrent();
+        if (!checked) return;
+        prepared = await call('prepareSend', {
+          ...checked.payload, receipt: checked.report.receipt
+        });
+        const summary = 'Type: ' + prepared.type + '\nSubject: ' + prepared.subject +
+          '\nEligible recipients: ' + prepared.eligibleCount +
+          '\nSkipped: ' + prepared.skippedCount +
+          '\n\nCONFIRMATION 1 OF 2: Accept sending this communication to all eligible subscribers?';
+        if (!window.confirm(summary)) {
+          await call('cancelSend', { id: prepared.id });
+          ui.status('Full send cancelled at first confirmation.');
+          return;
+        }
+        const next = await call('confirmFirst', { id: prepared.id, token: prepared.token });
+        if (!window.confirm('FINAL CONFIRMATION 2 OF 2\n\n' +
+            'Send REAL EMAIL to ' + next.eligibleCount + ' eligible subscribers?\n' +
+            next.subject + '\n\nThis cannot be recalled after sending.')) {
+          await call('cancelSend', { id: prepared.id });
+          ui.status('Full send cancelled at final confirmation.');
+          return;
+        }
+        finalSubmitted = true;
+        const result = await call('confirmFinal', { id: prepared.id, token: next.token });
+        currentCampaignId = result.id;
+        renderReport(result);
+        ui.status('Campaign queued. The background worker handles actual delivery.');
+      } catch (error) {
+        if (prepared?.id && !finalSubmitted) {
+          try { await call('cancelSend', { id: prepared.id }); } catch (_) {}
+        }
+        if (finalSubmitted) {
+          currentCampaignId = prepared.id;
+          ui.status('Final approval response was uncertain. Check campaign history/status before retrying. ' +
+            (error?.message || ''), 'error');
+        } else {
+          ui.status(error?.message || 'Full send was not authorized.', 'error');
+        }
+      } finally {
+        fullButton.disabled = false;
+      }
+    }
+
+    async function loadSendHistory() {
+      try {
+        const records = await call('sendHistory');
+        renderReport(records);
+        if (records.length) currentCampaignId = records[0].id;
+        ui.status('Recent campaigns loaded. Check send progress for the latest.');
+      } catch (error) {
+        ui.status(error?.message || 'Campaign history unavailable.', 'error');
+      }
+    }
+
+    async function checkSendStatus() {
+      if (!currentCampaignId) {
+        ui.status('No production campaign has been queued in this session.');
+        return;
+      }
+      try { renderReport(await call('sendStatus', { id: currentCampaignId })); }
+      catch (error) { ui.status(error?.message || 'Campaign status unavailable.', 'error'); }
+    }
+
+    htmlSource.addEventListener('change', () => {
+      fileInput.hidden = htmlSource.value !== 'upload';
+      driveInput.hidden = htmlSource.value !== 'drive';
+      importButton.hidden = htmlSource.value === 'editor';
+    });
+    htmlSource.dispatchEvent(new Event('change'));
+    communicationType.addEventListener('change', () => {
+      subjectField.input.value = defaultSubject(communicationType.value);
+      markDirty();
+    });
 
     for (const input of [
       titleField.input,
@@ -825,6 +1102,7 @@ export default {
 
     editor.setComponents(templateMarkup('single'));
     scheduleEditorChromeRefresh();
+    subjectField.input.value = defaultSubject('monthly');
     dirty = false;
     saveState.textContent = 'Not saved yet';
 

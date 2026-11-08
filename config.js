@@ -13,7 +13,7 @@ export default {
   },
   apiUrl: 'https://script.google.com/macros/s/AKfycbxDrDo2mhMCy6_uNx1ri90s-e1-NMm8XLCjQiIbyoAhcDg9O7HXKnRNmhVhJ3Le76j8/exec',
   serviceApiUrls: {
-    calendar: 'https://script.google.com/macros/s/AKfycbyvxfJniOdH81RLvZT2_0_yicxGIcrlTUuTvzXw96u0qnVUQ5ZllW84JvsnsY4DD0jh/exec'
+    calendar: 'https://script.google.com/macros/s/AKfycbxasv0_spEwGFSQsFKOGFRPBrQNH2bruWIQR1pOOtbWGaTfPuBwnSGbO6sOHNRXp9yp/exec'
   },
   // Calendar records store relative paths such as images/event_123.png.
   // Set this to '/' when the current web server exposes those files at /images/.
